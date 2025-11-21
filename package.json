@@ -1,22 +1,25 @@
 {
-  "name": "nestjs-service-template",
+  "name": "chronos-api",
   "version": "1.0.0",
-  "description": "Template for new nestjs services",
-  "author": "alberthernandezdev@gmail.com",
+  "description": "Chronos Time Tracking API - Backend service for employee time management",
+  "author": "alex@elea.com",
   "license": "MIT",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/AlbertHernandez/nestjs-service-template/issues"
+    "url": "https://github.com/allosens/chronos-app/issues"
   },
-  "homepage": "https://github.com/AlbertHernandez/nestjs-service-template#readme",
+  "homepage": "https://github.com/allosens/chronos-app#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AlbertHernandez/nestjs-service-template.git"
+    "url": "git+https://github.com/allosens/chronos-app.git"
   },
   "keywords": [
     "typescript",
     "nestjs",
-    "template"
+    "time-tracking",
+    "chronos",
+    "hr-management",
+    "employee-management"
   ],
   "engines": {
     "node": ">=22.x",
@@ -27,7 +30,7 @@
   "scripts": {
     "build": "node --run build:clean && nest build --path tsconfig.prod.json",
     "start": "node dist/main.js",
-    "dev": "nest start --watch --debug=0.0.0.0:9229",
+    "dev": "nest start --watch --debug=0.0.0.0:9230",
     "test": "rimraf coverage .nyc_output && concurrently 'node --run test:unit' 'node --run test:e2e' && node --run calculate-global-test-coverage",
     "test:unit": "vitest run --coverage --config vitest.config.unit.ts",
     "test:e2e": "vitest run --coverage --config ./vitest.config.e2e.ts",
