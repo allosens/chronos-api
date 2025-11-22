@@ -17,9 +17,9 @@ export class HealthController {
     const dbHealth = await this.prisma.healthCheck();
     
     return { 
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      database: dbHealth,
+      status: "ok"
+    //   timestamp: new Date().toISOString(),
+    //   database: dbHealth,
     };
   }
 
