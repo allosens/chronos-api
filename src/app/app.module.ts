@@ -2,9 +2,11 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 
 import { HealthModule } from "@/app/health/health.module";
-import { AuthModule } from "@/contexts/auth/auth.module";
+
 import { DatabaseModule } from "@/shared/database/database.module";
 import { LoggerModule } from "@/shared/logger/logger.module";
+
+import { AuthModule } from "@/contexts/auth/auth.module";
 
 @Module({
   imports: [

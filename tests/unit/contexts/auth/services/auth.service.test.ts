@@ -1,13 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable unicorn/no-null */
 import { ConflictException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 
 import { createMock, Mock } from "@/tests/utils/mock";
+
 import { PrismaService } from "@/shared/database/prisma.service";
 
-import { AuthService } from "@/contexts/auth/services/auth.service";
 import { LoginDto } from "@/contexts/auth/models/login.dto";
 import { RegisterDto } from "@/contexts/auth/models/register.dto";
+import { AuthService } from "@/contexts/auth/services/auth.service";
 
 describe("AuthService", () => {
   let authService: AuthService;
@@ -107,8 +113,8 @@ describe("AuthService", () => {
         companyId: "invalid-company",
       };
 
-      (prismaService.user.findUnique as any).mockResolvedValue(null);
-      (prismaService.company.findUnique as any).mockResolvedValue(null);
+      (prismaService.user.findUnique as any).mockResolvedValue();
+      (prismaService.company.findUnique as any).mockResolvedValue();
 
       await expect(authService.register(registerDto)).rejects.toThrow(
         ConflictException,
@@ -161,7 +167,7 @@ describe("AuthService", () => {
         password: "password123",
       };
 
-      (prismaService.user.findUnique as any).mockResolvedValue(null);
+      (prismaService.user.findUnique as any).mockResolvedValue();
 
       await expect(authService.login(loginDto)).rejects.toThrow(
         UnauthorizedException,
@@ -233,15 +239,15 @@ describe("AuthService", () => {
       expect(result?.email).toBe(mockUser.email);
     });
 
-    it("should return null if user not found", async () => {
-      (prismaService.user.findUnique as any).mockResolvedValue(null);
+    it("should return undefined if user not found", async () => {
+      (prismaService.user.findUnique as any).mockResolvedValue();
 
       const result = await authService.validateUser("nonexistent-user");
 
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
-    it("should return null if user is inactive", async () => {
+    it("should return undefined if user is inactive", async () => {
       const mockUser = {
         id: "user-123",
         isActive: false,
@@ -251,7 +257,7 @@ describe("AuthService", () => {
 
       const result = await authService.validateUser("user-123");
 
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
   });
 });

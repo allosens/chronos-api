@@ -1,5 +1,6 @@
 // Chronos API - Prisma 7.0 Configuration
 import "dotenv/config";
+
 import { defineConfig, env } from "prisma/config";
 
 export default defineConfig({

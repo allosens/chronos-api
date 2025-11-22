@@ -1,13 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable unicorn/no-null */
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import { Test, TestingModule } from "@nestjs/testing";
+import * as bcrypt from "bcrypt";
 import * as nock from "nock";
 import request from "supertest";
-import * as bcrypt from "bcrypt";
 
 import { AppModule } from "@/app/app.module";
+
 import { PrismaService } from "@/shared/database/prisma.service";
 
 describe("Auth (e2e)", () => {
@@ -25,9 +31,9 @@ describe("Auth (e2e)", () => {
     app.setGlobalPrefix("api");
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
-    
+
     prisma = app.get(PrismaService);
-    
+
     nock.disableNetConnect();
     nock.enableNetConnect("127.0.0.1");
   });

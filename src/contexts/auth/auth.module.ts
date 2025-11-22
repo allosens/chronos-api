@@ -18,15 +18,25 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (
-        configService: ConfigService,
-      ): Promise<JwtModuleOptions> => ({
-        secret: configService.get<string>("JWT_SECRET") || "default-secret",
-        signOptions: {
-          expiresIn:
-            (configService.get<string>("JWT_EXPIRES_IN") as any) || "7d",
-        },
-      }),
+      useFactory: (configService: ConfigService): JwtModuleOptions => {
+        // JWT library accepts string values for expiresIn (e.g., "7d", "1h")
+        // but TypeScript strict types require number | StringValue
+        // Using type assertion as this is a known safe pattern
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const expiresIn =
+          (configService.get<string>("JWT_EXPIRES_IN") as any) ?? "7d";
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment */
+
+        return {
+          secret: configService.get<string>("JWT_SECRET") ?? "default-secret",
+          signOptions: {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            expiresIn,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
   ],

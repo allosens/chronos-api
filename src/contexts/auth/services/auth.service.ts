@@ -1,8 +1,8 @@
 import {
+  ConflictException,
   Injectable,
   Logger,
   UnauthorizedException,
-  ConflictException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
@@ -75,6 +75,7 @@ export class AuthService {
     this.logger.log(`User registered successfully: ${user.email}`);
 
     // Generate JWT token
+    // eslint-disable-next-line @typescript-eslint/await-thenable
     const accessToken = await this.generateToken(user);
 
     return {
@@ -138,6 +139,7 @@ export class AuthService {
     this.logger.log(`User logged in successfully: ${user.email}`);
 
     // Generate JWT token
+    // eslint-disable-next-line @typescript-eslint/await-thenable
     const accessToken = await this.generateToken(user);
 
     return {
@@ -153,7 +155,7 @@ export class AuthService {
     };
   }
 
-  async validateUser(userId: string): Promise<IAuthUser | null> {
+  async validateUser(userId: string): Promise<IAuthUser | undefined> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -167,8 +169,8 @@ export class AuthService {
       },
     });
 
-    if (!user || !user.isActive) {
-      return null;
+    if (!user?.isActive) {
+      return;
     }
 
     return {
@@ -181,12 +183,12 @@ export class AuthService {
     };
   }
 
-  private async generateToken(user: {
+  private generateToken(user: {
     id: string;
     email: string;
     role: string;
     companyId: string;
-  }): Promise<string> {
+  }): string {
     const payload: IJwtPayload = {
       sub: user.id,
       email: user.email,

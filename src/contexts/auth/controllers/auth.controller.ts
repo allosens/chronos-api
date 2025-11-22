@@ -39,7 +39,7 @@ export class AuthController {
 
   @Get("profile")
   @UseGuards(JwtAuthGuard)
-  async getProfile(@CurrentUser() user: IAuthUser): Promise<IAuthUser> {
+  getProfile(@CurrentUser() user: IAuthUser): IAuthUser {
     this.logger.log(`Profile request for user: ${user.email}`);
     return user;
   }

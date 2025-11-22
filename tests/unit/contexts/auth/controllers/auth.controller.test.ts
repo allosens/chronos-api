@@ -3,10 +3,10 @@ import { Logger } from "@nestjs/common";
 import { createMock, Mock } from "@/tests/utils/mock";
 
 import { AuthController } from "@/contexts/auth/controllers/auth.controller";
-import { AuthService } from "@/contexts/auth/services/auth.service";
+import { IAuthUser } from "@/contexts/auth/interfaces/auth-user.interface";
 import { LoginDto } from "@/contexts/auth/models/login.dto";
 import { RegisterDto } from "@/contexts/auth/models/register.dto";
-import { IAuthUser } from "@/contexts/auth/interfaces/auth-user.interface";
+import { AuthService } from "@/contexts/auth/services/auth.service";
 
 describe("AuthController", () => {
   let authController: AuthController;
@@ -17,7 +17,7 @@ describe("AuthController", () => {
     authService = createMock<AuthService>();
     logger = createMock<Logger>();
     authController = new AuthController(authService);
-    authController["logger"] = logger;
+    authController.logger = logger;
   });
 
   describe("register", () => {
@@ -86,7 +86,7 @@ describe("AuthController", () => {
   });
 
   describe("getProfile", () => {
-    it("should return user profile", async () => {
+    it("should return user profile", () => {
       const mockUser: IAuthUser = {
         id: "user-123",
         email: "test@example.com",
@@ -96,7 +96,7 @@ describe("AuthController", () => {
         companyId: "company-123",
       };
 
-      const result = await authController.getProfile(mockUser);
+      const result = authController.getProfile(mockUser);
 
       expect(result).toEqual(mockUser);
       expect(logger.log).toHaveBeenCalledWith(

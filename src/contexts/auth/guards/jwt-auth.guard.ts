@@ -5,10 +5,16 @@ import { AuthGuard } from "@nestjs/passport";
 export class JwtAuthGuard extends AuthGuard("jwt") {
   private readonly logger = new Logger(JwtAuthGuard.name);
 
-  handleRequest(err: any, user: any, info: any) {
-    if (err || !user) {
-      this.logger.warn(`JWT authentication failed: ${info?.message || "Unknown error"}`);
-      throw err || new Error("Unauthorized");
+  handleRequest<TUser = unknown>(
+    err: Error | null,
+    user: TUser | false,
+    info: Error | undefined,
+  ): TUser {
+    if (err ?? !user) {
+      this.logger.warn(
+        `JWT authentication failed: ${info?.message ?? "Unknown error"}`,
+      );
+      throw err ?? new Error("Unauthorized");
     }
     return user;
   }
