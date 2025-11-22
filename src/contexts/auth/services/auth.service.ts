@@ -75,8 +75,7 @@ export class AuthService {
     this.logger.log(`User registered successfully: ${user.email}`);
 
     // Generate JWT token
-    // eslint-disable-next-line @typescript-eslint/await-thenable
-    const accessToken = await this.generateToken(user);
+    const accessToken = this.generateToken(user);
 
     return {
       accessToken,
@@ -139,8 +138,7 @@ export class AuthService {
     this.logger.log(`User logged in successfully: ${user.email}`);
 
     // Generate JWT token
-    // eslint-disable-next-line @typescript-eslint/await-thenable
-    const accessToken = await this.generateToken(user);
+    const accessToken = this.generateToken(user);
 
     return {
       accessToken,
