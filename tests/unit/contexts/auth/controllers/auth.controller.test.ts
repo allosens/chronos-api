@@ -16,8 +16,7 @@ describe("AuthController", () => {
   beforeEach(() => {
     authService = createMock<AuthService>();
     logger = createMock<Logger>();
-    authController = new AuthController(authService);
-    authController.logger = logger;
+    authController = new AuthController(logger, authService);
   });
 
   describe("register", () => {

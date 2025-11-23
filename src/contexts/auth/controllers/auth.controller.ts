@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Logger,
   Post,
   UseGuards,
@@ -19,9 +20,10 @@ import { AuthService } from "../services/auth.service";
 
 @Controller("auth")
 export class AuthController {
-  private readonly logger = new Logger(AuthController.name);
-
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    @Inject(Logger) private readonly logger: Logger,
+    private readonly authService: AuthService,
+  ) {}
 
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
