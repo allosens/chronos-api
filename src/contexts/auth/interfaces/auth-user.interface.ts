@@ -4,5 +4,5 @@ export interface IAuthUser {
   firstName: string;
   lastName: string;
   role: string;
-  companyId: string | null;
+  companyId: string;
 }

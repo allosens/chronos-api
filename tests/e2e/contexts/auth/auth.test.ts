@@ -2,10 +2,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable unicorn/no-null */
-import {
-  ValidationPipe,
-} from "@nestjs/common";
+import { ValidationPipe } from "@nestjs/common";
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -33,7 +32,7 @@ describe("Auth (e2e)", () => {
       new FastifyAdapter(),
     );
     app.setGlobalPrefix("api");
-    
+
     // Enable validation pipe for e2e tests
     app.useGlobalPipes(
       new ValidationPipe({
@@ -42,7 +41,7 @@ describe("Auth (e2e)", () => {
         transform: true,
       }),
     );
-    
+
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
@@ -83,9 +82,13 @@ describe("Auth (e2e)", () => {
       };
 
       // Mock database calls - need to spy on the actual instance
-      const findUniqueUserSpy = vi.spyOn(prisma.user, 'findUnique').mockResolvedValue(null);
-      const findUniqueCompanySpy = vi.spyOn(prisma.company, 'findUnique').mockResolvedValue(testCompany as any);
-      const createUserSpy = vi.spyOn(prisma.user, 'create').mockResolvedValue({
+      const findUniqueUserSpy = vi
+        .spyOn(prisma.user, "findUnique")
+        .mockResolvedValue(null);
+      const findUniqueCompanySpy = vi
+        .spyOn(prisma.company, "findUnique")
+        .mockResolvedValue(testCompany as any);
+      const createUserSpy = vi.spyOn(prisma.user, "create").mockResolvedValue({
         id: "550e8400-e29b-41d4-a716-446655440010", // Valid UUID
         email: registerDto.email,
         firstName: registerDto.firstName,
@@ -118,10 +121,12 @@ describe("Auth (e2e)", () => {
         companyId: "550e8400-e29b-41d4-a716-446655440001", // Valid UUID
       };
 
-      const findUniqueSpy = vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
-        id: "existing-user",
-        email: registerDto.email,
-      } as any);
+      const findUniqueSpy = vi
+        .spyOn(prisma.user, "findUnique")
+        .mockResolvedValue({
+          id: "existing-user",
+          email: registerDto.email,
+        } as any);
 
       const response = await request(app.getHttpServer())
         .post("/api/auth/register")
@@ -129,7 +134,7 @@ describe("Auth (e2e)", () => {
         .expect(409);
 
       expect(response.body.message).toContain("already exists");
-      
+
       // Restore mock
       findUniqueSpy.mockRestore();
     });
@@ -181,8 +186,12 @@ describe("Auth (e2e)", () => {
         isActive: true,
       };
 
-      const findUniqueSpy = vi.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser as any);
-      const updateSpy = vi.spyOn(prisma.user, 'update').mockResolvedValue(mockUser as any);
+      const findUniqueSpy = vi
+        .spyOn(prisma.user, "findUnique")
+        .mockResolvedValue(mockUser as any);
+      const updateSpy = vi
+        .spyOn(prisma.user, "update")
+        .mockResolvedValue(mockUser as any);
 
       const response = await request(app.getHttpServer())
         .post("/api/auth/login")
@@ -202,7 +211,9 @@ describe("Auth (e2e)", () => {
     });
 
     it("should return 401 for invalid credentials", async () => {
-      const findUniqueSpy = vi.spyOn(prisma.user, 'findUnique').mockResolvedValue(null);
+      const findUniqueSpy = vi
+        .spyOn(prisma.user, "findUnique")
+        .mockResolvedValue(null);
 
       await request(app.getHttpServer())
         .post("/api/auth/login")
@@ -224,7 +235,9 @@ describe("Auth (e2e)", () => {
         isActive: false,
       };
 
-      const findUniqueSpy = vi.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser as any);
+      const findUniqueSpy = vi
+        .spyOn(prisma.user, "findUnique")
+        .mockResolvedValue(mockUser as any);
 
       await request(app.getHttpServer())
         .post("/api/auth/login")
@@ -256,8 +269,12 @@ describe("Auth (e2e)", () => {
       };
 
       // Login first to get token
-      const findUniqueSpy = vi.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser as any);
-      const updateSpy = vi.spyOn(prisma.user, 'update').mockResolvedValue(mockUser as any);
+      const findUniqueSpy = vi
+        .spyOn(prisma.user, "findUnique")
+        .mockResolvedValue(mockUser as any);
+      const updateSpy = vi
+        .spyOn(prisma.user, "update")
+        .mockResolvedValue(mockUser as any);
 
       const loginResponse = await request(app.getHttpServer())
         .post("/api/auth/login")

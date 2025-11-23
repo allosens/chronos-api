@@ -5,7 +5,7 @@ export const createVitestTestConfig = (testingType: string): InlineConfig => {
   // Load environment variables for testing
   const testEnv = loadEnv("test", process.cwd(), "");
   const baseEnv = loadEnv("", process.cwd(), "");
-  
+
   return {
     root: "./",
     globals: true,

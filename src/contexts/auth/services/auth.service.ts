@@ -74,8 +74,17 @@ export class AuthService {
 
     this.logger.log(`User registered successfully: ${user.email}`);
 
+    if (!user.companyId) {
+      throw new Error("User creation failed: companyId is required");
+    }
+
     // Generate JWT token
-    const accessToken = this.generateToken(user);
+    const accessToken = this.generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+    });
 
     return {
       accessToken,
@@ -137,8 +146,19 @@ export class AuthService {
 
     this.logger.log(`User logged in successfully: ${user.email}`);
 
+    if (!user.companyId) {
+      throw new UnauthorizedException(
+        "User account is incomplete: missing company assignment",
+      );
+    }
+
     // Generate JWT token
-    const accessToken = this.generateToken(user);
+    const accessToken = this.generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+    });
 
     return {
       accessToken,
@@ -167,7 +187,7 @@ export class AuthService {
       },
     });
 
-    if (!user?.isActive) {
+    if (!user?.isActive || !user.companyId) {
       return;
     }
 
@@ -185,7 +205,7 @@ export class AuthService {
     id: string;
     email: string;
     role: string;
-    companyId: string | null;
+    companyId: string;
   }): string {
     const payload: IJwtPayload = {
       sub: user.id,

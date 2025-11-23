@@ -4,6 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
@@ -14,12 +15,22 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private prisma: PrismaClient;
   private pool: Pool;
 
-  constructor() {
-    // Create PostgreSQL connection pool using DIRECT_URL for tests or fallback to DATABASE_URL
-    const databaseUrl = process.env.NODE_ENV === 'test' 
-      ? process.env.DIRECT_URL || process.env.DATABASE_URL 
-      : process.env.DATABASE_URL;
-      
+  constructor(private readonly configService: ConfigService) {
+    // Create PostgreSQL connection pool using ConfigService
+    // Use DIRECT_URL for tests or fallback to DATABASE_URL
+    const nodeEnv = this.configService.get<string>("NODE_ENV");
+    const databaseUrl =
+      nodeEnv === "test"
+        ? (this.configService.get<string>("DIRECT_URL") ??
+          this.configService.get<string>("DATABASE_URL"))
+        : this.configService.get<string>("DATABASE_URL");
+
+    if (!databaseUrl) {
+      throw new Error(
+        "DATABASE_URL is required. Please set it in your environment variables.",
+      );
+    }
+
     this.pool = new Pool({
       connectionString: databaseUrl,
     });
