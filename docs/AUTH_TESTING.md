@@ -12,9 +12,11 @@ This directory contains files to help you test the Chronos API authentication an
 ### Prerequisites
 
 1. **Start the API server:**
+
    ```bash
    pnpm run dev
    ```
+
    The API should be running on `http://localhost:3001`
 
 2. **Create a company in the database** (required before registering users):
@@ -42,6 +44,7 @@ This directory contains files to help you test the Chronos API authentication an
 ### Basic Usage
 
 1. **Update the company ID** in the requests:
+
    ```http
    "companyId": "test-company-id"  # Replace with your actual company ID
    ```
@@ -62,6 +65,7 @@ This directory contains files to help you test the Chronos API authentication an
 ### Workflow Example
 
 The file includes a workflow that chains requests:
+
 ```http
 ### Step 1: Register a new user
 # @name registerUser
@@ -113,6 +117,7 @@ Run the script in interactive mode for step-by-step testing:
 ```
 
 This will present a menu:
+
 ```
 1. Register new user
 2. Login
@@ -142,6 +147,7 @@ test_profile "$TOKEN"
 ### 1. Register New User
 
 **Request:**
+
 ```bash
 curl -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
@@ -155,6 +161,7 @@ curl -X POST http://localhost:3001/api/auth/register \
 ```
 
 **Expected Response (201):**
+
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -172,6 +179,7 @@ curl -X POST http://localhost:3001/api/auth/register \
 ### 2. Login
 
 **Request:**
+
 ```bash
 curl -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
@@ -182,6 +190,7 @@ curl -X POST http://localhost:3001/api/auth/login \
 ```
 
 **Expected Response (200):**
+
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -199,12 +208,14 @@ curl -X POST http://localhost:3001/api/auth/login \
 ### 3. Get Profile (Protected)
 
 **Request:**
+
 ```bash
 curl -X GET http://localhost:3001/api/auth/profile \
   -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
 ```
 
 **Expected Response (200):**
+
 ```json
 {
   "id": "clx...",
@@ -221,11 +232,13 @@ curl -X GET http://localhost:3001/api/auth/profile \
 The files include comprehensive test scenarios:
 
 ### Success Cases
+
 - ✅ Register new user with valid data
 - ✅ Login with correct credentials
 - ✅ Access protected route with valid JWT token
 
 ### Error Cases
+
 - ❌ Register with existing email → 409 Conflict
 - ❌ Register with invalid company → 409 Conflict
 - ❌ Login with wrong password → 401 Unauthorized
@@ -257,17 +270,19 @@ You can decode tokens at [jwt.io](https://jwt.io/) to inspect the payload.
 To test multi-tenant isolation:
 
 1. **Create two companies:**
+
    ```sql
-   INSERT INTO companies (id, name, slug) VALUES 
+   INSERT INTO companies (id, name, slug) VALUES
      ('company-a', 'Company A', 'company-a'),
      ('company-b', 'Company B', 'company-b');
    ```
 
 2. **Register users for each company:**
+
    ```bash
    # User for Company A
    test_register "usera@example.com" "Password123!" "User" "A" "company-a"
-   
+
    # User for Company B
    test_register "userb@example.com" "Password123!" "User" "B" "company-b"
    ```
@@ -282,17 +297,19 @@ To test multi-tenant isolation:
 Default role for new users is `EMPLOYEE`. To test other roles:
 
 1. **Update user role in database:**
+
    ```sql
-   UPDATE users 
-   SET role = 'ADMIN' 
+   UPDATE users
+   SET role = 'ADMIN'
    WHERE email = 'admin@example.com';
    ```
 
 2. **Login and verify JWT payload contains the updated role:**
+
    ```bash
    RESPONSE=$(test_login "admin@example.com" "Password123!")
    TOKEN=$(echo $RESPONSE | jq -r '.accessToken')
-   
+
    # Decode token to verify role
    echo $TOKEN | cut -d'.' -f2 | base64 -d | jq '.'
    ```
@@ -300,11 +317,13 @@ Default role for new users is `EMPLOYEE`. To test other roles:
 ## 🔍 Debugging Tips
 
 ### Check if API is running
+
 ```bash
 curl http://localhost:3001/api/health
 ```
 
 ### Pretty print JSON responses
+
 ```bash
 curl http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
@@ -312,12 +331,14 @@ curl http://localhost:3001/api/auth/login \
 ```
 
 ### View response headers
+
 ```bash
 curl -i http://localhost:3001/api/auth/profile \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 ### Enable verbose output
+
 ```bash
 curl -v http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
@@ -334,23 +355,28 @@ curl -v http://localhost:3001/api/auth/login \
 ## 🐛 Troubleshooting
 
 ### "Connection refused"
+
 - Make sure the API is running: `pnpm run dev`
 - Check the port in `.env` (default: 3001)
 
 ### "409 Conflict - User already exists"
+
 - The email is already registered
 - Use a different email or delete the user from the database
 
 ### "409 Conflict - Company not found"
+
 - The `companyId` doesn't exist in the database
 - Create a company first or use an existing company ID
 
 ### "401 Unauthorized"
+
 - Check if the password is correct
 - Verify the JWT token is valid and not expired
 - Ensure the `Authorization` header is properly formatted: `Bearer <token>`
 
 ### "400 Bad Request"
+
 - Check the request payload format
 - Verify email format is valid
 - Ensure password is at least 8 characters
@@ -358,12 +384,14 @@ curl -v http://localhost:3001/api/auth/login \
 ## 💡 Pro Tips
 
 1. **Save tokens as environment variables:**
+
    ```bash
    export AUTH_TOKEN=$(test_login "user@example.com" "Password123!" | jq -r '.accessToken')
    test_profile "$AUTH_TOKEN"
    ```
 
 2. **Create a test user script:**
+
    ```bash
    # create-test-user.sh
    source auth-curl.sh
@@ -371,6 +399,7 @@ curl -v http://localhost:3001/api/auth/login \
    ```
 
 3. **Use `jq` for better output:**
+
    ```bash
    test_login "user@example.com" "Password123!" | jq -C '.' | less -R
    ```
