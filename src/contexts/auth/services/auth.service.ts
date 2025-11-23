@@ -56,7 +56,7 @@ export class AuthService {
     const user = await this.prisma.user.create({
       data: {
         email: registerDto.email,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
         companyId: registerDto.companyId,
@@ -99,7 +99,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
-        password: true,
+        passwordHash: true,
         firstName: true,
         lastName: true,
         role: true,
@@ -121,7 +121,7 @@ export class AuthService {
     // Verify password
     const isPasswordValid = await bcrypt.compare(
       loginDto.password,
-      user.password,
+      user.passwordHash,
     );
 
     if (!isPasswordValid) {
@@ -185,13 +185,13 @@ export class AuthService {
     id: string;
     email: string;
     role: string;
-    companyId: string;
+    companyId: string | null;
   }): string {
     const payload: IJwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
-      companyId: user.companyId,
+      companyId: user.companyId || '',
     };
 
     return this.jwtService.sign(payload);

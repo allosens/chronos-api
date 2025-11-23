@@ -173,7 +173,7 @@ describe("Auth (e2e)", () => {
       const mockUser = {
         id: "550e8400-e29b-41d4-a716-446655440004", // Valid UUID
         email: "test@example.com",
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         firstName: "Test",
         lastName: "User",
         role: "EMPLOYEE",
@@ -247,7 +247,7 @@ describe("Auth (e2e)", () => {
       const mockUser = {
         id: "550e8400-e29b-41d4-a716-446655440012", // Valid UUID
         email: "test@example.com",
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         firstName: "Test",
         lastName: "User",
         role: "EMPLOYEE",

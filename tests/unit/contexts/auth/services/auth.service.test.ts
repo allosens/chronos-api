@@ -138,7 +138,7 @@ describe("AuthService", () => {
       const mockUser = {
         id: "user-123",
         email: loginDto.email,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         firstName: "Test",
         lastName: "User",
         role: "EMPLOYEE",
@@ -183,7 +183,7 @@ describe("AuthService", () => {
       const mockUser = {
         id: "user-123",
         email: loginDto.email,
-        password: "hashedpassword",
+        passwordHash: "hashedpassword",
         isActive: false,
       };
 
@@ -205,7 +205,7 @@ describe("AuthService", () => {
       const mockUser = {
         id: "user-123",
         email: loginDto.email,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         isActive: true,
       };
 

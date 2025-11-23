@@ -15,9 +15,13 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool;
 
   constructor() {
-    // Create PostgreSQL connection pool
+    // Create PostgreSQL connection pool using DIRECT_URL for tests or fallback to DATABASE_URL
+    const databaseUrl = process.env.NODE_ENV === 'test' 
+      ? process.env.DIRECT_URL || process.env.DATABASE_URL 
+      : process.env.DATABASE_URL;
+      
     this.pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: databaseUrl,
     });
 
     // Create Prisma PostgreSQL adapter
@@ -50,27 +54,42 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // Proxy all Prisma client properties
+  // Proxy all Prisma client properties - New Schema
   get company() {
     return this.prisma.company;
   }
   get user() {
     return this.prisma.user;
   }
-  get project() {
-    return this.prisma.project;
+  get employee() {
+    return this.prisma.employee;
   }
-  get projectMember() {
-    return this.prisma.projectMember;
+  get companySetting() {
+    return this.prisma.companySetting;
   }
-  get timeEntry() {
-    return this.prisma.timeEntry;
+  get workSession() {
+    return this.prisma.workSession;
   }
-  get report() {
-    return this.prisma.report;
+  get break() {
+    return this.prisma.break;
   }
-  get invitation() {
-    return this.prisma.invitation;
+  get absenceRequest() {
+    return this.prisma.absenceRequest;
+  }
+  get timeCorrectionRequest() {
+    return this.prisma.timeCorrectionRequest;
+  }
+  get invoice() {
+    return this.prisma.invoice;
+  }
+  get invoiceItem() {
+    return this.prisma.invoiceItem;
+  }
+  get auditLog() {
+    return this.prisma.auditLog;
+  }
+  get passwordResetToken() {
+    return this.prisma.passwordResetToken;
   }
 
   // Proxy utility methods
