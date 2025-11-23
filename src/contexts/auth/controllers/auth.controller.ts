@@ -12,7 +12,7 @@ import {
 
 import { CurrentUser } from "../decorators/current-user.decorator";
 import { JwtAuthGuard } from "../guards/jwt-auth.guard";
-import { IAuthUser } from "../interfaces/auth-user.interface";
+import { type IAuthUser } from "../interfaces/auth-user.interface";
 import { AuthResponseDto } from "../models/auth-response.dto";
 import { LoginDto } from "../models/login.dto";
 import { RegisterDto } from "../models/register.dto";
