@@ -15,6 +15,8 @@ import { JwtAuthGuard } from "../guards/jwt-auth.guard";
 import { type IAuthUser } from "../interfaces/auth-user.interface";
 import { AuthResponseDto } from "../models/auth-response.dto";
 import { LoginDto } from "../models/login.dto";
+import { RefreshResponseDto } from "../models/refresh-response.dto";
+import { RefreshTokenDto } from "../models/refresh-token.dto";
 import { RegisterDto } from "../models/register.dto";
 import { AuthService } from "../services/auth.service";
 
@@ -37,6 +39,15 @@ export class AuthController {
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     this.logger.log(`Login request for: ${loginDto.email}`);
     return this.authService.login(loginDto);
+  }
+
+  @Post("refresh")
+  @HttpCode(HttpStatus.OK)
+  async refresh(
+    @Body() refreshTokenDto: RefreshTokenDto,
+  ): Promise<RefreshResponseDto> {
+    this.logger.log("Token refresh request");
+    return this.authService.refreshTokens(refreshTokenDto.refreshToken);
   }
 
   @Get("profile")

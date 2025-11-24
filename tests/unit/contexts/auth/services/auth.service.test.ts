@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable unicorn/no-null */
 import { ConflictException, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 
@@ -19,6 +20,7 @@ describe("AuthService", () => {
   let authService: AuthService;
   let prismaService: Mock<PrismaService>;
   let jwtService: Mock<JwtService>;
+  let configService: Mock<ConfigService>;
 
   beforeEach(() => {
     prismaService = createMock<PrismaService>({
@@ -30,9 +32,15 @@ describe("AuthService", () => {
       company: {
         findUnique: vi.fn(),
       } as any,
+      refreshToken: {
+        create: vi.fn(),
+        findFirst: vi.fn(),
+        update: vi.fn(),
+      } as any,
     });
     jwtService = createMock<JwtService>();
-    authService = new AuthService(prismaService, jwtService);
+    configService = createMock<ConfigService>();
+    authService = new AuthService(prismaService, jwtService, configService);
   });
 
   describe("register", () => {
@@ -63,11 +71,17 @@ describe("AuthService", () => {
       (prismaService.user.findUnique as any).mockResolvedValue(null);
       (prismaService.company.findUnique as any).mockResolvedValue(mockCompany);
       (prismaService.user.create as any).mockResolvedValue(mockUser);
+      (prismaService.refreshToken.create as any).mockResolvedValue({
+        id: "refresh-token-id",
+        token: "mock-refresh-token",
+      });
       jwtService.sign.mockReturnValue("mock-jwt-token");
 
       const result = await authService.register(registerDto);
 
       expect(result).toHaveProperty("accessToken", "mock-jwt-token");
+      expect(result).toHaveProperty("refreshToken");
+      expect(result).toHaveProperty("expiresIn", 600); // 10 minutes
       expect(result).toHaveProperty("user");
       expect(result.user.email).toBe(registerDto.email);
       expect(prismaService.user.findUnique).toHaveBeenCalledWith({
@@ -148,11 +162,17 @@ describe("AuthService", () => {
 
       (prismaService.user.findUnique as any).mockResolvedValue(mockUser);
       (prismaService.user.update as any).mockResolvedValue(mockUser);
+      (prismaService.refreshToken.create as any).mockResolvedValue({
+        id: "refresh-token-id",
+        token: "mock-refresh-token",
+      });
       jwtService.sign.mockReturnValue("mock-jwt-token");
 
       const result = await authService.login(loginDto);
 
       expect(result).toHaveProperty("accessToken", "mock-jwt-token");
+      expect(result).toHaveProperty("refreshToken");
+      expect(result).toHaveProperty("expiresIn", 600); // 10 minutes
       expect(result).toHaveProperty("user");
       expect(result.user.email).toBe(loginDto.email);
       expect(prismaService.user.update).toHaveBeenCalledWith({

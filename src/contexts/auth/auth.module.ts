@@ -19,13 +19,13 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): JwtModuleOptions => {
-        // JWT library accepts string values for expiresIn (e.g., "7d", "1h")
+        // JWT library accepts string values for expiresIn (e.g., "7d", "1h", "10m")
         // but TypeScript strict types require number | StringValue
         // Using type assertion as this is a known safe pattern
         /* eslint-disable @typescript-eslint/no-unsafe-assignment */
         /* eslint-disable @typescript-eslint/no-explicit-any */
         const expiresIn =
-          (configService.get<string>("JWT_EXPIRES_IN") as any) ?? "7d";
+          (configService.get<string>("JWT_EXPIRES_IN") as any) ?? "10m";
         /* eslint-enable @typescript-eslint/no-explicit-any */
         /* eslint-enable @typescript-eslint/no-unsafe-assignment */
 

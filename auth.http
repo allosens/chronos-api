@@ -30,6 +30,8 @@ Content-Type: {{contentType}}
 # Expected Response (201 Created):
 # {
 #   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "refreshToken": "abc123def456...",
+#   "expiresIn": 600,
 #   "user": {
 #     "id": "user-id",
 #     "email": "john.doe@example.com",
@@ -57,6 +59,8 @@ Content-Type: {{contentType}}
 # Expected Response (200 OK):
 # {
 #   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "refreshToken": "abc123def456...",
+#   "expiresIn": 600,
 #   "user": {
 #     "id": "user-id",
 #     "email": "john.doe@example.com",
@@ -69,7 +73,30 @@ Content-Type: {{contentType}}
 ###############################################################################
 
 ###############################################################################
-# 3. GET USER PROFILE (Protected Route)
+# 3. REFRESH TOKEN
+###############################################################################
+# Replace the token below with the refreshToken from login/register response
+
+@refreshToken = abc123def456...
+
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###############################################################################
+# Expected Response (200 OK):
+# {
+#   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "refreshToken": "xyz789ghi012...",
+#   "expiresIn": 600
+# }
+###############################################################################
+
+###############################################################################
+# 4. GET USER PROFILE (Protected Route)
 ###############################################################################
 # Replace the token below with the accessToken from login/register response
 
@@ -91,10 +118,10 @@ Authorization: Bearer {{authToken}}
 ###############################################################################
 
 ###############################################################################
-# 4. TEST CASES - ERROR SCENARIOS
+# 5. TEST CASES - ERROR SCENARIOS
 ###############################################################################
 
-### 4.1 Register with existing email (should return 409 Conflict)
+### 5.1 Register with existing email (should return 409 Conflict)
 POST {{baseUrl}}/auth/register
 Content-Type: {{contentType}}
 
@@ -106,7 +133,7 @@ Content-Type: {{contentType}}
   "companyId": "replace-with-actual-company-id"
 }
 
-### 4.2 Register with invalid company (should return 409 Conflict)
+### 5.2 Register with invalid company (should return 409 Conflict)
 POST {{baseUrl}}/auth/register
 Content-Type: {{contentType}}
 
@@ -118,7 +145,7 @@ Content-Type: {{contentType}}
   "companyId": "non-existent-company-id"
 }
 
-### 4.3 Login with wrong password (should return 401 Unauthorized)
+### 5.3 Login with wrong password (should return 401 Unauthorized)
 POST {{baseUrl}}/auth/login
 Content-Type: {{contentType}}
 
@@ -127,7 +154,7 @@ Content-Type: {{contentType}}
   "password": "WrongPassword123!"
 }
 
-### 4.4 Login with non-existent user (should return 401 Unauthorized)
+### 5.4 Login with non-existent user (should return 401 Unauthorized)
 POST {{baseUrl}}/auth/login
 Content-Type: {{contentType}}
 
@@ -136,14 +163,14 @@ Content-Type: {{contentType}}
   "password": "SomePassword123!"
 }
 
-### 4.5 Get profile without token (should return 401 Unauthorized)
+### 5.5 Get profile without token (should return 401 Unauthorized)
 GET {{baseUrl}}/auth/profile
 
-### 4.6 Get profile with invalid token (should return 401 Unauthorized)
+### 5.6 Get profile with invalid token (should return 401 Unauthorized)
 GET {{baseUrl}}/auth/profile
 Authorization: Bearer invalid-token-here
 
-### 4.7 Register with invalid email format (should return 400 Bad Request)
+### 5.7 Register with invalid email format (should return 400 Bad Request)
 POST {{baseUrl}}/auth/register
 Content-Type: {{contentType}}
 
@@ -155,7 +182,7 @@ Content-Type: {{contentType}}
   "companyId": "replace-with-actual-company-id"
 }
 
-### 4.8 Register with short password (should return 400 Bad Request)
+### 5.8 Register with short password (should return 400 Bad Request)
 POST {{baseUrl}}/auth/register
 Content-Type: {{contentType}}
 
@@ -167,8 +194,24 @@ Content-Type: {{contentType}}
   "companyId": "replace-with-actual-company-id"
 }
 
+### 5.9 Refresh with invalid token (should return 401 Unauthorized)
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "invalid-refresh-token"
+}
+
+### 5.10 Refresh with expired token (should return 401 Unauthorized)
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "expired-refresh-token"
+}
+
 ###############################################################################
-# 5. WORKFLOW EXAMPLE - Complete Registration and Profile Access
+# 6. WORKFLOW EXAMPLE - Complete Registration and Profile Access
 ###############################################################################
 
 ### Step 1: Register a new user
@@ -189,11 +232,20 @@ Content-Type: {{contentType}}
 GET {{baseUrl}}/auth/profile
 Authorization: Bearer {{registerUser.response.body.accessToken}}
 
+### Step 3: Refresh access token (use refresh token from registration)
+# @name refreshToken
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "{{registerUser.response.body.refreshToken}}"
+}
+
 ###############################################################################
-# 6. MULTI-TENANT TESTING
+# 7. MULTI-TENANT TESTING
 ###############################################################################
 
-### 6.1 Register user for Company A
+### 7.1 Register user for Company A
 POST {{baseUrl}}/auth/register
 Content-Type: {{contentType}}
 
@@ -205,7 +257,7 @@ Content-Type: {{contentType}}
   "companyId": "company-a-id"
 }
 
-### 6.2 Register user for Company B
+### 7.2 Register user for Company B
 POST {{baseUrl}}/auth/register
 Content-Type: {{contentType}}
 
@@ -218,13 +270,13 @@ Content-Type: {{contentType}}
 }
 
 ###############################################################################
-# 7. ROLE-BASED ACCESS TESTING
+# 8. ROLE-BASED ACCESS TESTING
 ###############################################################################
 # Note: By default, all registered users have EMPLOYEE role
 # To test ADMIN or MANAGER roles, you need to update the user role in the database
 # Then login with that user and use the token for protected endpoints
 
-### 7.1 Login as EMPLOYEE
+### 8.1 Login as EMPLOYEE
 POST {{baseUrl}}/auth/login
 Content-Type: {{contentType}}
 
@@ -233,7 +285,7 @@ Content-Type: {{contentType}}
   "password": "EmployeePassword123!"
 }
 
-### 7.2 Login as MANAGER (update role in database first)
+### 8.2 Login as MANAGER (update role in database first)
 POST {{baseUrl}}/auth/login
 Content-Type: {{contentType}}
 
@@ -242,7 +294,7 @@ Content-Type: {{contentType}}
   "password": "ManagerPassword123!"
 }
 
-### 7.3 Login as ADMIN (update role in database first)
+### 8.3 Login as ADMIN (update role in database first)
 POST {{baseUrl}}/auth/login
 Content-Type: {{contentType}}
 

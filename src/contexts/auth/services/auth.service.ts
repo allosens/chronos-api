@@ -1,9 +1,12 @@
+import { randomBytes } from "node:crypto";
+
 import {
   ConflictException,
   Injectable,
   Logger,
   UnauthorizedException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 
@@ -13,16 +16,20 @@ import { IAuthUser } from "../interfaces/auth-user.interface";
 import { IJwtPayload } from "../interfaces/jwt-payload.interface";
 import { AuthResponseDto } from "../models/auth-response.dto";
 import { LoginDto } from "../models/login.dto";
+import { RefreshResponseDto } from "../models/refresh-response.dto";
 import { RegisterDto } from "../models/register.dto";
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly SALT_ROUNDS = 10;
+  private readonly ACCESS_TOKEN_EXPIRATION = 600; // 10 minutes in seconds
+  private readonly REFRESH_TOKEN_EXPIRATION = 7 * 24 * 60 * 60; // 7 days in seconds
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
@@ -78,7 +85,7 @@ export class AuthService {
       throw new Error("User creation failed: companyId is required");
     }
 
-    // Generate JWT token
+    // Generate tokens
     const accessToken = this.generateToken({
       id: user.id,
       email: user.email,
@@ -86,8 +93,12 @@ export class AuthService {
       companyId: user.companyId,
     });
 
+    const refreshToken = await this.generateRefreshToken(user.id);
+
     return {
       accessToken,
+      refreshToken,
+      expiresIn: this.ACCESS_TOKEN_EXPIRATION,
       user: {
         id: user.id,
         email: user.email,
@@ -152,7 +163,7 @@ export class AuthService {
       );
     }
 
-    // Generate JWT token
+    // Generate tokens
     const accessToken = this.generateToken({
       id: user.id,
       email: user.email,
@@ -160,8 +171,12 @@ export class AuthService {
       companyId: user.companyId,
     });
 
+    const refreshToken = await this.generateRefreshToken(user.id);
+
     return {
       accessToken,
+      refreshToken,
+      expiresIn: this.ACCESS_TOKEN_EXPIRATION,
       user: {
         id: user.id,
         email: user.email,
@@ -199,6 +214,92 @@ export class AuthService {
       role: user.role,
       companyId: user.companyId,
     };
+  }
+
+  async refreshTokens(refreshToken: string): Promise<RefreshResponseDto> {
+    this.logger.log("Attempting to refresh tokens");
+
+    // Find the refresh token in the database
+    const storedToken = await this.prisma.refreshToken.findFirst({
+      where: {
+        token: refreshToken,
+        expiresAt: {
+          gt: new Date(),
+        },
+        isRevoked: false,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            companyId: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    if (!storedToken) {
+      this.logger.warn("Refresh token invalid or expired");
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+
+    const user = storedToken.user;
+
+    if (!user.isActive || !user.companyId) {
+      this.logger.warn(
+        `Refresh failed: User inactive or missing company - ${storedToken.userId}`,
+      );
+      throw new UnauthorizedException("User account is invalid");
+    }
+
+    // Revoke the old refresh token
+    await this.prisma.refreshToken.update({
+      where: { id: storedToken.id },
+      data: { isRevoked: true },
+    });
+
+    // Generate new tokens
+    const accessToken = this.generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+    });
+
+    const newRefreshToken = await this.generateRefreshToken(user.id);
+
+    this.logger.log(`Tokens refreshed successfully for user: ${user.email}`);
+
+    return {
+      accessToken,
+      refreshToken: newRefreshToken,
+      expiresIn: this.ACCESS_TOKEN_EXPIRATION,
+    };
+  }
+
+  private async generateRefreshToken(userId: string): Promise<string> {
+    // Generate a random token
+    const token = randomBytes(32).toString("hex");
+
+    // Calculate expiration date
+    const expiresAt = new Date(
+      Date.now() + this.REFRESH_TOKEN_EXPIRATION * 1000,
+    );
+
+    // Store the refresh token in the database
+    await this.prisma.refreshToken.create({
+      data: {
+        token,
+        userId,
+        expiresAt,
+        isRevoked: false,
+      },
+    });
+
+    return token;
   }
 
   private generateToken(user: {

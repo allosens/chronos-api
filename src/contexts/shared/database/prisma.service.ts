@@ -102,6 +102,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get passwordResetToken() {
     return this.prisma.passwordResetToken;
   }
+  get refreshToken() {
+    return this.prisma.refreshToken;
+  }
 
   // Proxy utility methods
   get $connect() {

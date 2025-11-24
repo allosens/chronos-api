@@ -49,6 +49,7 @@ model User {
   deactivatedEmployees          Employee[]              @relation("EmployeeDeactivatedBy")
   employee                      Employee?
   passwordResetTokens           PasswordResetToken[]
+  refreshTokens                 RefreshToken[]
   createdTimeCorrectionRequests TimeCorrectionRequest[] @relation("TimeCorrectionReviewedBy")
   timeCorrectionRequests        TimeCorrectionRequest[]
   company                       Company?                @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -228,6 +229,18 @@ model PasswordResetToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("password_reset_tokens")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
 }
 
 enum UserRole {
