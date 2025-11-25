@@ -5,16 +5,32 @@ import {
 import { Test, TestingModule } from "@nestjs/testing";
 import * as nock from "nock";
 import request from "supertest";
+import { vi } from "vitest";
 
 import { AppModule } from "@/app/app.module";
+import { PrismaService } from "@/shared/database/prisma.service";
 
 describe("Health", () => {
   let app: NestFastifyApplication;
 
+  // Create a mock PrismaService
+  const mockPrismaService = {
+    $queryRaw: vi.fn().mockResolvedValue([{ "?column?": 1 }]),
+    $connect: vi.fn(),
+    $disconnect: vi.fn(),
+    healthCheck: vi.fn().mockResolvedValue({
+      status: "healthy",
+      message: "Database connection is working",
+    }),
+  };
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PrismaService)
+      .useValue(mockPrismaService)
+      .compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),

@@ -4,6 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
@@ -14,10 +15,24 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private prisma: PrismaClient;
   private pool: Pool;
 
-  constructor() {
-    // Create PostgreSQL connection pool
+  constructor(private readonly configService: ConfigService) {
+    // Create PostgreSQL connection pool using ConfigService
+    // Use DIRECT_URL for tests or fallback to DATABASE_URL
+    const nodeEnv = this.configService.get<string>("NODE_ENV");
+    const databaseUrl =
+      nodeEnv === "test"
+        ? (this.configService.get<string>("DIRECT_URL") ??
+          this.configService.get<string>("DATABASE_URL"))
+        : this.configService.get<string>("DATABASE_URL");
+
+    if (!databaseUrl) {
+      throw new Error(
+        "DATABASE_URL is required. Please set it in your environment variables.",
+      );
+    }
+
     this.pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: databaseUrl,
     });
 
     // Create Prisma PostgreSQL adapter
@@ -50,27 +65,45 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // Proxy all Prisma client properties
+  // Proxy all Prisma client properties - New Schema
   get company() {
     return this.prisma.company;
   }
   get user() {
     return this.prisma.user;
   }
-  get project() {
-    return this.prisma.project;
+  get employee() {
+    return this.prisma.employee;
   }
-  get projectMember() {
-    return this.prisma.projectMember;
+  get companySetting() {
+    return this.prisma.companySetting;
   }
-  get timeEntry() {
-    return this.prisma.timeEntry;
+  get workSession() {
+    return this.prisma.workSession;
   }
-  get report() {
-    return this.prisma.report;
+  get break() {
+    return this.prisma.break;
   }
-  get invitation() {
-    return this.prisma.invitation;
+  get absenceRequest() {
+    return this.prisma.absenceRequest;
+  }
+  get timeCorrectionRequest() {
+    return this.prisma.timeCorrectionRequest;
+  }
+  get invoice() {
+    return this.prisma.invoice;
+  }
+  get invoiceItem() {
+    return this.prisma.invoiceItem;
+  }
+  get auditLog() {
+    return this.prisma.auditLog;
+  }
+  get passwordResetToken() {
+    return this.prisma.passwordResetToken;
+  }
+  get refreshToken() {
+    return this.prisma.refreshToken;
   }
 
   // Proxy utility methods

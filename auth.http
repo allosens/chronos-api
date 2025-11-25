@@ -1,0 +1,308 @@
+###############################################################################
+# Chronos API - Authentication & Authorization Testing
+###############################################################################
+# This file contains HTTP requests to test the authentication system
+# Use the REST Client extension for VS Code to execute these requests
+# Or use the equivalent curl commands provided in auth-curl.sh
+###############################################################################
+
+@baseUrl = http://localhost:3001/api
+@contentType = application/json
+
+###############################################################################
+# 1. REGISTER NEW USER
+###############################################################################
+# First, you need to create a company in the database, then register a user
+# Replace the companyId with an actual company ID from your database
+
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "john.doe@example.com",
+  "password": "SecurePassword123!",
+  "firstName": "John",
+  "lastName": "Doe",
+  "companyId": "replace-with-actual-company-id"
+}
+
+###############################################################################
+# Expected Response (201 Created):
+# {
+#   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "refreshToken": "abc123def456...",
+#   "expiresIn": 600,
+#   "user": {
+#     "id": "user-id",
+#     "email": "john.doe@example.com",
+#     "firstName": "John",
+#     "lastName": "Doe",
+#     "role": "EMPLOYEE",
+#     "companyId": "company-id"
+#   }
+# }
+###############################################################################
+
+###############################################################################
+# 2. LOGIN WITH EXISTING USER
+###############################################################################
+
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "john.doe@example.com",
+  "password": "SecurePassword123!"
+}
+
+###############################################################################
+# Expected Response (200 OK):
+# {
+#   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "refreshToken": "abc123def456...",
+#   "expiresIn": 600,
+#   "user": {
+#     "id": "user-id",
+#     "email": "john.doe@example.com",
+#     "firstName": "John",
+#     "lastName": "Doe",
+#     "role": "EMPLOYEE",
+#     "companyId": "company-id"
+#   }
+# }
+###############################################################################
+
+###############################################################################
+# 3. REFRESH TOKEN
+###############################################################################
+# Replace the token below with the refreshToken from login/register response
+
+@refreshToken = abc123def456...
+
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###############################################################################
+# Expected Response (200 OK):
+# {
+#   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "refreshToken": "xyz789ghi012...",
+#   "expiresIn": 600
+# }
+###############################################################################
+
+###############################################################################
+# 4. GET USER PROFILE (Protected Route)
+###############################################################################
+# Replace the token below with the accessToken from login/register response
+
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLWlkIiwiZW1haWwiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsInJvbGUiOiJFTVBMT1lFRSIsImNvbXBhbnlJZCI6ImNvbXBhbnktaWQiLCJpYXQiOjE3MDAzNDU2Nzh9.example
+
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# Expected Response (200 OK):
+# {
+#   "id": "user-id",
+#   "email": "john.doe@example.com",
+#   "firstName": "John",
+#   "lastName": "Doe",
+#   "role": "EMPLOYEE",
+#   "companyId": "company-id"
+# }
+###############################################################################
+
+###############################################################################
+# 5. TEST CASES - ERROR SCENARIOS
+###############################################################################
+
+### 5.1 Register with existing email (should return 409 Conflict)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "john.doe@example.com",
+  "password": "SecurePassword123!",
+  "firstName": "John",
+  "lastName": "Doe",
+  "companyId": "replace-with-actual-company-id"
+}
+
+### 5.2 Register with invalid company (should return 409 Conflict)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "newuser@example.com",
+  "password": "SecurePassword123!",
+  "firstName": "New",
+  "lastName": "User",
+  "companyId": "non-existent-company-id"
+}
+
+### 5.3 Login with wrong password (should return 401 Unauthorized)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "john.doe@example.com",
+  "password": "WrongPassword123!"
+}
+
+### 5.4 Login with non-existent user (should return 401 Unauthorized)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "nonexistent@example.com",
+  "password": "SomePassword123!"
+}
+
+### 5.5 Get profile without token (should return 401 Unauthorized)
+GET {{baseUrl}}/auth/profile
+
+### 5.6 Get profile with invalid token (should return 401 Unauthorized)
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer invalid-token-here
+
+### 5.7 Register with invalid email format (should return 400 Bad Request)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "invalid-email",
+  "password": "SecurePassword123!",
+  "firstName": "John",
+  "lastName": "Doe",
+  "companyId": "replace-with-actual-company-id"
+}
+
+### 5.8 Register with short password (should return 400 Bad Request)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "newuser@example.com",
+  "password": "short",
+  "firstName": "John",
+  "lastName": "Doe",
+  "companyId": "replace-with-actual-company-id"
+}
+
+### 5.9 Refresh with invalid token (should return 401 Unauthorized)
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "invalid-refresh-token"
+}
+
+### 5.10 Refresh with expired token (should return 401 Unauthorized)
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "expired-refresh-token"
+}
+
+###############################################################################
+# 6. WORKFLOW EXAMPLE - Complete Registration and Profile Access
+###############################################################################
+
+### Step 1: Register a new user
+# @name registerUser
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "workflow.test@example.com",
+  "password": "WorkflowPassword123!",
+  "firstName": "Workflow",
+  "lastName": "Test",
+  "companyId": "replace-with-actual-company-id"
+}
+
+### Step 2: Extract token and get profile (use token from previous response)
+# @name getProfile
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{registerUser.response.body.accessToken}}
+
+### Step 3: Refresh access token (use refresh token from registration)
+# @name refreshToken
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "{{registerUser.response.body.refreshToken}}"
+}
+
+###############################################################################
+# 7. MULTI-TENANT TESTING
+###############################################################################
+
+### 7.1 Register user for Company A
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "user.companya@example.com",
+  "password": "CompanyAPassword123!",
+  "firstName": "User",
+  "lastName": "CompanyA",
+  "companyId": "company-a-id"
+}
+
+### 7.2 Register user for Company B
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "user.companyb@example.com",
+  "password": "CompanyBPassword123!",
+  "firstName": "User",
+  "lastName": "CompanyB",
+  "companyId": "company-b-id"
+}
+
+###############################################################################
+# 8. ROLE-BASED ACCESS TESTING
+###############################################################################
+# Note: By default, all registered users have EMPLOYEE role
+# To test ADMIN or MANAGER roles, you need to update the user role in the database
+# Then login with that user and use the token for protected endpoints
+
+### 8.1 Login as EMPLOYEE
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "employee@example.com",
+  "password": "EmployeePassword123!"
+}
+
+### 8.2 Login as MANAGER (update role in database first)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "manager@example.com",
+  "password": "ManagerPassword123!"
+}
+
+### 8.3 Login as ADMIN (update role in database first)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@example.com",
+  "password": "AdminPassword123!"
+}
+
+###############################################################################
+# END OF AUTH TESTING
+###############################################################################
