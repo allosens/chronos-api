@@ -10,5 +10,7 @@ export default defineConfig({
   },
   datasource: {
     url: env("DATABASE_URL"),
+    // Note: directUrl is not supported in Prisma 7.x datasource config
+    // Using the direct URL for migrations is handled automatically
   },
 });

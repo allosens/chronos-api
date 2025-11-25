@@ -2,6 +2,13 @@
 -- CHRONOS TIME TRACKING SYSTEM - Sample Data
 -- ===========================================================================
 -- Sample data for development and testing purposes
+--
+-- DEVELOPMENT PASSWORDS:
+-- Super Admin (admin@chronos.com): admin123
+-- Acme Admin (admin@acme.com): acme123
+-- Tech Solutions Admin (admin@techsolutions.es): tech123
+-- Startup CEO (ceo@startup.com): startup123
+-- All Employees: employee123
 -- ===========================================================================
 
 -- Sample companies
@@ -10,26 +17,29 @@ INSERT INTO companies (id, name, email, phone, address, "subscriptionPlan", "isA
 ('550e8400-e29b-41d4-a716-446655440002', 'Tech Solutions SL', 'contact@techsolutions.es', '+34 932 654 987', 'Passeig de Gràcia, 50, 08007 Barcelona', 'STARTER', true),
 ('550e8400-e29b-41d4-a716-446655440003', 'Startup Inc', 'info@startup.com', '+34 954 789 123', 'Calle Sierpes, 20, 41004 Sevilla', 'FREE', true);
 
--- Super Admin (no company)
+-- Super Admin (no company) - Password: admin123
 INSERT INTO users (id, "companyId", email, "passwordHash", "firstName", "lastName", role, "isActive", "emailVerifiedAt") VALUES
-('550e8400-e29b-41d4-a716-446655440010', NULL, 'admin@chronos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LdKGp.xyz', 'System', 'Administrator', 'SUPER_ADMIN', true, NOW());
+('550e8400-e29b-41d4-a716-446655440010', NULL, 'admin@chronos.com', '$2b$12$88uRw1BAll5IB6rah.EFhep.ntATVFjYxsQHjj3i0FydEUFXR5FQ2', 'System', 'Administrator', 'SUPER_ADMIN', true, NOW());
 
 -- Company: Acme Corporation users
+-- Admin password: acme123, Employees password: employee123
 INSERT INTO users (id, "companyId", email, "passwordHash", "firstName", "lastName", role, "isActive", "emailVerifiedAt") VALUES
-('550e8400-e29b-41d4-a716-446655440011', '550e8400-e29b-41d4-a716-446655440001', 'admin@acme.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LdKGp.xyz', 'John', 'Manager', 'COMPANY_ADMIN', true, NOW()),
-('550e8400-e29b-41d4-a716-446655440012', '550e8400-e29b-41d4-a716-446655440001', 'maria.garcia@acme.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LdKGp.xyz', 'María', 'García', 'EMPLOYEE', true, NOW()),
-('550e8400-e29b-41d4-a716-446655440013', '550e8400-e29b-41d4-a716-446655440001', 'carlos.lopez@acme.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LdKGp.xyz', 'Carlos', 'López', 'EMPLOYEE', true, NOW()),
-('550e8400-e29b-41d4-a716-446655440014', '550e8400-e29b-41d4-a716-446655440001', 'ana.rodriguez@acme.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LdKGp.xyz', 'Ana', 'Rodríguez', 'EMPLOYEE', true, NOW());
+('550e8400-e29b-41d4-a716-446655440011', '550e8400-e29b-41d4-a716-446655440001', 'admin@acme.com', '$2b$12$ffhpQ9sUxWUcI6J69sxlvOE0LyLP2aQlvdrqtZKl1./200FapQeg.', 'John', 'Manager', 'COMPANY_ADMIN', true, NOW()),
+('550e8400-e29b-41d4-a716-446655440012', '550e8400-e29b-41d4-a716-446655440001', 'maria.garcia@acme.com', '$2b$12$hUD5ZjRfjo4AiW5p1IAcWOgkLa6Sv06CEc8rp/jYCAE7XO2O.YmmS', 'María', 'García', 'EMPLOYEE', true, NOW()),
+('550e8400-e29b-41d4-a716-446655440013', '550e8400-e29b-41d4-a716-446655440001', 'carlos.lopez@acme.com', '$2b$12$hUD5ZjRfjo4AiW5p1IAcWOgkLa6Sv06CEc8rp/jYCAE7XO2O.YmmS', 'Carlos', 'López', 'EMPLOYEE', true, NOW()),
+('550e8400-e29b-41d4-a716-446655440014', '550e8400-e29b-41d4-a716-446655440001', 'ana.rodriguez@acme.com', '$2b$12$hUD5ZjRfjo4AiW5p1IAcWOgkLa6Sv06CEc8rp/jYCAE7XO2O.YmmS', 'Ana', 'Rodríguez', 'EMPLOYEE', true, NOW());
 
--- Company: Tech Solutions users  
+-- Company: Tech Solutions users
+-- Admin password: tech123, Employees password: employee123
 INSERT INTO users (id, "companyId", email, "passwordHash", "firstName", "lastName", role, "isActive", "emailVerifiedAt") VALUES
-('550e8400-e29b-41d4-a716-446655440021', '550e8400-e29b-41d4-a716-446655440002', 'admin@techsolutions.es', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LdKGp.xyz', 'Laura', 'Martínez', 'COMPANY_ADMIN', true, NOW()),
-('550e8400-e29b-41d4-a716-446655440022', '550e8400-e29b-41d4-a716-446655440002', 'pedro.sanchez@techsolutions.es', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LdKGp.xyz', 'Pedro', 'Sánchez', 'EMPLOYEE', true, NOW());
+('550e8400-e29b-41d4-a716-446655440021', '550e8400-e29b-41d4-a716-446655440002', 'admin@techsolutions.es', '$2b$12$MNcIUCQZR9SLoFEZT8f/CO08SSROb21RP4Jh0Owr6qI6bL9n2X1yK', 'Laura', 'Martínez', 'COMPANY_ADMIN', true, NOW()),
+('550e8400-e29b-41d4-a716-446655440022', '550e8400-e29b-41d4-a716-446655440002', 'pedro.sanchez@techsolutions.es', '$2b$12$hUD5ZjRfjo4AiW5p1IAcWOgkLa6Sv06CEc8rp/jYCAE7XO2O.YmmS', 'Pedro', 'Sánchez', 'EMPLOYEE', true, NOW());
 
 -- Company: Startup Inc users
+-- CEO password: startup123, Employees password: employee123
 INSERT INTO users (id, "companyId", email, "passwordHash", "firstName", "lastName", role, "isActive", "emailVerifiedAt") VALUES
-('550e8400-e29b-41d4-a716-446655440031', '550e8400-e29b-41d4-a716-446655440003', 'ceo@startup.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LdKGp.xyz', 'David', 'Startup', 'COMPANY_ADMIN', true, NOW()),
-('550e8400-e29b-41d4-a716-446655440032', '550e8400-e29b-41d4-a716-446655440003', 'dev@startup.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LdKGp.xyz', 'Sofia', 'Developer', 'EMPLOYEE', true, NOW());
+('550e8400-e29b-41d4-a716-446655440031', '550e8400-e29b-41d4-a716-446655440003', 'ceo@startup.com', '$2b$12$WxL6IUOCJft6WcwcP.O54.JH8DDkTibvLrh9E9tQz5NtumwhoemPy', 'David', 'Startup', 'COMPANY_ADMIN', true, NOW()),
+('550e8400-e29b-41d4-a716-446655440032', '550e8400-e29b-41d4-a716-446655440003', 'dev@startup.com', '$2b$12$hUD5ZjRfjo4AiW5p1IAcWOgkLa6Sv06CEc8rp/jYCAE7XO2O.YmmS', 'Sofia', 'Developer', 'EMPLOYEE', true, NOW());
 
 -- Employee details for Acme Corporation
 INSERT INTO employees (id, "userId", "companyId", "employeeNumber", position, department, "phoneNumber", "hireDate", "vacationDaysPerYear") VALUES

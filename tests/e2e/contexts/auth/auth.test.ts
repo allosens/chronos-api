@@ -23,10 +23,33 @@ describe("Auth (e2e)", () => {
   let app: NestFastifyApplication;
   let prisma: PrismaService;
 
+  // Create a mock PrismaService
+  const mockPrismaService = {
+    user: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    company: {
+      findUnique: vi.fn(),
+    },
+    refreshToken: {
+      create: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    },
+    $connect: vi.fn(),
+    $disconnect: vi.fn(),
+    $queryRaw: vi.fn(),
+  };
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PrismaService)
+      .useValue(mockPrismaService)
+      .compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
@@ -45,7 +68,7 @@ describe("Auth (e2e)", () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
-    prisma = app.get(PrismaService);
+    prisma = mockPrismaService as any;
 
     nock.disableNetConnect();
     nock.enableNetConnect("127.0.0.1");
@@ -54,6 +77,24 @@ describe("Auth (e2e)", () => {
   beforeEach(() => {
     // Clear all mocks before each test
     vi.clearAllMocks();
+    
+    // Reset all mock functions
+    mockPrismaService.user.findUnique.mockReset();
+    mockPrismaService.user.create.mockReset();
+    mockPrismaService.user.update.mockReset();
+    mockPrismaService.company.findUnique.mockReset();
+    mockPrismaService.refreshToken.create.mockReset();
+    mockPrismaService.refreshToken.findFirst.mockReset();
+    mockPrismaService.refreshToken.update.mockReset();
+    
+    // Reset all mock functions
+    mockPrismaService.user.findUnique.mockReset();
+    mockPrismaService.user.create.mockReset();
+    mockPrismaService.user.update.mockReset();
+    mockPrismaService.company.findUnique.mockReset();
+    mockPrismaService.refreshToken.create.mockReset();
+    mockPrismaService.refreshToken.findFirst.mockReset();
+    mockPrismaService.refreshToken.update.mockReset();
   });
 
   afterEach(() => {
@@ -81,20 +122,23 @@ describe("Auth (e2e)", () => {
         companyId: testCompany.id,
       };
 
-      // Mock database calls - need to spy on the actual instance
-      const findUniqueUserSpy = vi
-        .spyOn(prisma.user, "findUnique")
-        .mockResolvedValue(null);
-      const findUniqueCompanySpy = vi
-        .spyOn(prisma.company, "findUnique")
-        .mockResolvedValue(testCompany as any);
-      const createUserSpy = vi.spyOn(prisma.user, "create").mockResolvedValue({
+      // Mock database calls using the mocked service
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.company.findUnique.mockResolvedValue(testCompany as any);
+      prisma.user.create.mockResolvedValue({
         id: "550e8400-e29b-41d4-a716-446655440010", // Valid UUID
         email: registerDto.email,
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
         role: "EMPLOYEE",
         companyId: registerDto.companyId,
+      } as any);
+      prisma.refreshToken.create.mockResolvedValue({
+        id: "550e8400-e29b-41d4-a716-446655440011",
+        token: "mock-refresh-token",
+        userId: "550e8400-e29b-41d4-a716-446655440010",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        isRevoked: false,
       } as any);
 
       const response = await request(app.getHttpServer())
@@ -105,11 +149,6 @@ describe("Auth (e2e)", () => {
       expect(response.body).toHaveProperty("accessToken");
       expect(response.body).toHaveProperty("user");
       expect(response.body.user.email).toBe(registerDto.email);
-
-      // Restore mocks
-      findUniqueUserSpy.mockRestore();
-      findUniqueCompanySpy.mockRestore();
-      createUserSpy.mockRestore();
     });
 
     it("should return 409 if user already exists", async () => {
@@ -121,12 +160,10 @@ describe("Auth (e2e)", () => {
         companyId: "550e8400-e29b-41d4-a716-446655440001", // Valid UUID
       };
 
-      const findUniqueSpy = vi
-        .spyOn(prisma.user, "findUnique")
-        .mockResolvedValue({
-          id: "existing-user",
-          email: registerDto.email,
-        } as any);
+      prisma.user.findUnique.mockResolvedValue({
+        id: "existing-user",
+        email: registerDto.email,
+      } as any);
 
       const response = await request(app.getHttpServer())
         .post("/api/auth/register")
@@ -134,9 +171,6 @@ describe("Auth (e2e)", () => {
         .expect(409);
 
       expect(response.body.message).toContain("already exists");
-
-      // Restore mock
-      findUniqueSpy.mockRestore();
     });
 
     it("should return 400 for invalid email", async () => {
@@ -186,12 +220,15 @@ describe("Auth (e2e)", () => {
         isActive: true,
       };
 
-      const findUniqueSpy = vi
-        .spyOn(prisma.user, "findUnique")
-        .mockResolvedValue(mockUser as any);
-      const updateSpy = vi
-        .spyOn(prisma.user, "update")
-        .mockResolvedValue(mockUser as any);
+      prisma.user.findUnique.mockResolvedValue(mockUser as any);
+      prisma.user.update.mockResolvedValue(mockUser as any);
+      prisma.refreshToken.create.mockResolvedValue({
+        id: "550e8400-e29b-41d4-a716-446655440015",
+        token: "mock-refresh-token",
+        userId: mockUser.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        isRevoked: false,
+      } as any);
 
       const response = await request(app.getHttpServer())
         .post("/api/auth/login")
@@ -204,16 +241,10 @@ describe("Auth (e2e)", () => {
       expect(response.body).toHaveProperty("accessToken");
       expect(response.body).toHaveProperty("user");
       expect(response.body.user.email).toBe(mockUser.email);
-
-      // Restore mocks
-      findUniqueSpy.mockRestore();
-      updateSpy.mockRestore();
     });
 
     it("should return 401 for invalid credentials", async () => {
-      const findUniqueSpy = vi
-        .spyOn(prisma.user, "findUnique")
-        .mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(null);
 
       await request(app.getHttpServer())
         .post("/api/auth/login")
@@ -222,9 +253,6 @@ describe("Auth (e2e)", () => {
           password: "password123",
         })
         .expect(401);
-
-      // Restore mock
-      findUniqueSpy.mockRestore();
     });
 
     it("should return 401 for inactive user", async () => {
@@ -235,9 +263,7 @@ describe("Auth (e2e)", () => {
         isActive: false,
       };
 
-      const findUniqueSpy = vi
-        .spyOn(prisma.user, "findUnique")
-        .mockResolvedValue(mockUser as any);
+      prisma.user.findUnique.mockResolvedValue(mockUser as any);
 
       await request(app.getHttpServer())
         .post("/api/auth/login")
@@ -246,9 +272,6 @@ describe("Auth (e2e)", () => {
           password: "password123",
         })
         .expect(401);
-
-      // Restore mock
-      findUniqueSpy.mockRestore();
     });
   });
 
@@ -269,12 +292,15 @@ describe("Auth (e2e)", () => {
       };
 
       // Login first to get token
-      const findUniqueSpy = vi
-        .spyOn(prisma.user, "findUnique")
-        .mockResolvedValue(mockUser as any);
-      const updateSpy = vi
-        .spyOn(prisma.user, "update")
-        .mockResolvedValue(mockUser as any);
+      prisma.user.findUnique.mockResolvedValue(mockUser as any);
+      prisma.user.update.mockResolvedValue(mockUser as any);
+      prisma.refreshToken.create.mockResolvedValue({
+        id: "550e8400-e29b-41d4-a716-446655440016",
+        token: "mock-refresh-token",
+        userId: mockUser.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        isRevoked: false,
+      } as any);
 
       const loginResponse = await request(app.getHttpServer())
         .post("/api/auth/login")
@@ -285,7 +311,18 @@ describe("Auth (e2e)", () => {
 
       const token = loginResponse.body.accessToken;
 
-      // Get profile - need to mock the JWT validation query as well
+      // Mock the user lookup for JWT strategy validation
+      prisma.user.findUnique.mockResolvedValue({
+        id: mockUser.id,
+        email: mockUser.email,
+        firstName: mockUser.firstName,
+        lastName: mockUser.lastName,
+        role: mockUser.role,
+        companyId: mockUser.companyId,
+        isActive: true,
+      } as any);
+
+      // Get profile
       const profileResponse = await request(app.getHttpServer())
         .get("/api/auth/profile")
         .set("Authorization", `Bearer ${token}`)
@@ -293,10 +330,6 @@ describe("Auth (e2e)", () => {
 
       expect(profileResponse.body.email).toBe(mockUser.email);
       expect(profileResponse.body.id).toBe(mockUser.id);
-
-      // Restore mocks
-      findUniqueSpy.mockRestore();
-      updateSpy.mockRestore();
     });
 
     it("should return 401 when not authenticated", async () => {
