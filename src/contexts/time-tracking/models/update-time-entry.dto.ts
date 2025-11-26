@@ -1,30 +1,16 @@
-import {
-  IsDateString,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MaxLength,
-} from "class-validator";
+import { IsDateString, IsOptional, IsString, MaxLength } from "class-validator";
 
-export class UpdateTimeEntryDto {
-  @IsUUID()
+export class UpdateWorkSessionDto {
+  @IsDateString()
   @IsOptional()
-  projectId?: string | null;
+  clockIn?: string;
 
-  @IsUUID()
+  @IsDateString()
   @IsOptional()
-  taskId?: string | null;
+  clockOut?: string | null;
 
   @IsString()
   @IsOptional()
   @MaxLength(1000)
-  description?: string | null;
-
-  @IsDateString()
-  @IsOptional()
-  startTime?: string;
-
-  @IsDateString()
-  @IsOptional()
-  endTime?: string | null;
+  notes?: string | null;
 }

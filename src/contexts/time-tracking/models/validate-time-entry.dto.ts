@@ -1,35 +1,15 @@
-import {
-  IsDateString,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MaxLength,
-} from "class-validator";
+import { IsDateString, IsNotEmpty, IsOptional, IsUUID } from "class-validator";
 
-export class ValidateTimeEntryDto {
+export class ValidateWorkSessionDto {
   @IsUUID()
   @IsOptional()
-  timeEntryId?: string;
+  workSessionId?: string;
 
   @IsDateString()
   @IsNotEmpty()
-  startTime!: string;
+  clockIn!: string;
 
   @IsDateString()
   @IsOptional()
-  endTime?: string;
-
-  @IsUUID()
-  @IsOptional()
-  projectId?: string;
-
-  @IsUUID()
-  @IsOptional()
-  taskId?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(1000)
-  description?: string;
+  clockOut?: string;
 }

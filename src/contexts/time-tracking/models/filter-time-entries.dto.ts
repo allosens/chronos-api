@@ -1,7 +1,7 @@
 import { Transform } from "class-transformer";
 import {
-  IsBoolean,
   IsDateString,
+  IsEnum,
   IsInt,
   IsOptional,
   IsUUID,
@@ -9,15 +9,7 @@ import {
   Min,
 } from "class-validator";
 
-export class FilterTimeEntriesDto {
-  @IsUUID()
-  @IsOptional()
-  projectId?: string;
-
-  @IsUUID()
-  @IsOptional()
-  taskId?: string;
-
+export class FilterWorkSessionsDto {
   @IsUUID()
   @IsOptional()
   userId?: string;
@@ -30,10 +22,9 @@ export class FilterTimeEntriesDto {
   @IsOptional()
   endDate?: string;
 
-  @IsBoolean()
+  @IsEnum(["CLOCKED_OUT", "WORKING", "ON_BREAK"])
   @IsOptional()
-  @Transform(({ value }) => value === "true" || value === true)
-  isActive?: boolean;
+  status?: "CLOCKED_OUT" | "WORKING" | "ON_BREAK";
 
   @IsInt()
   @Min(1)

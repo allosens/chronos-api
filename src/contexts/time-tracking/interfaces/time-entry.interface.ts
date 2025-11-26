@@ -1,55 +1,38 @@
-export interface ITimeEntry {
-  id: string;
-  userId: string;
-  companyId: string;
-  projectId: string | null;
-  taskId: string | null;
-  description: string | null;
-  startTime: Date;
-  endTime: Date | null;
-  durationMinutes: number | null;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-}
+import { type Break, type WorkSession } from "@prisma/client";
 
-export interface ITimeEntryWithRelations extends ITimeEntry {
+// Re-export Prisma types
+export type IBreak = Break;
+export type IWorkSession = WorkSession;
+
+export interface IWorkSessionWithRelations extends WorkSession {
   user?: {
     id: string;
     email: string;
     firstName: string;
     lastName: string;
   };
-  project?: {
-    id: string;
-    name: string;
-  } | null;
-  task?: {
-    id: string;
-    name: string;
-  } | null;
+  breaks?: Break[];
 }
 
 export interface ITimeConflict {
-  conflictingEntryId: string;
-  startTime: Date;
-  endTime: Date | null;
-  description: string | null;
+  conflictingSessionId: string;
+  date: Date;
+  clockIn: Date;
+  clockOut: Date | null;
 }
 
 export interface ITimeSummary {
   date: string;
   totalMinutes: number;
   totalHours: number;
-  entries: number;
+  sessions: number;
 }
 
 export interface IDailySummary {
   date: string;
   totalMinutes: number;
   totalHours: number;
-  entries: ITimeEntryWithRelations[];
+  sessions: IWorkSessionWithRelations[];
 }
 
 export interface IWeeklySummary {

@@ -7,7 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, WorkStatus } from "@prisma/client";
 
 import { PrismaService } from "@/shared/database/prisma.service";
 
@@ -17,16 +17,19 @@ import {
   type IDailySummary,
   type IMonthlySummary,
   type ITimeConflict,
-  type ITimeEntryWithRelations,
   type IWeeklySummary,
+  type IWorkSessionWithRelations,
 } from "../interfaces";
 import {
-  type CreateTimeEntryDto,
-  type FilterTimeEntriesDto,
-  type TimeEntriesListResponseDto,
-  type UpdateTimeEntryDto,
-  type ValidateTimeEntryDto,
+  type ClockInDto,
+  type ClockOutDto,
+  type EndBreakDto,
+  type FilterWorkSessionsDto,
+  type StartBreakDto,
+  type UpdateWorkSessionDto,
+  type ValidateWorkSessionDto,
   type ValidationResultDto,
+  type WorkSessionsListResponseDto,
 } from "../models";
 
 /** Milliseconds in a day */
@@ -38,86 +41,52 @@ export class TimeTrackingService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async createTimeEntry(
+  async clockIn(
     user: IAuthUser,
-    dto: CreateTimeEntryDto,
-  ): Promise<ITimeEntryWithRelations> {
-    this.logger.log(`Creating time entry for user ${user.id}`);
+    dto: ClockInDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Clocking in user ${user.id}`);
 
-    const startTime = new Date(dto.startTime);
-    const endTime = dto.endTime ? new Date(dto.endTime) : undefined;
+    const clockIn = new Date(dto.clockIn);
+    const date = new Date(clockIn);
+    date.setHours(0, 0, 0, 0);
 
-    // Validate time range
-    if (endTime && endTime <= startTime) {
-      throw new BadRequestException("End time must be after start time");
+    // Check if user already has an active session
+    const activeSession = await this.prisma.workSession.findFirst({
+      where: {
+        userId: user.id,
+        companyId: user.companyId,
+        status: { in: [WorkStatus.WORKING, WorkStatus.ON_BREAK] },
+      },
+    });
+
+    if (activeSession) {
+      throw new BadRequestException(
+        "You already have an active work session. Please clock out first.",
+      );
     }
 
-    // Check for overlapping entries
+    // Check for conflicting sessions on the same day
     const conflicts = await this.findConflicts(
       user.id,
       user.companyId,
-      startTime,
-      endTime,
+      clockIn,
     );
 
     if (conflicts.length > 0) {
       throw new BadRequestException(
-        "Time entry overlaps with existing entries",
+        "A work session already exists for this date",
       );
     }
 
-    // Validate project belongs to company if provided
-    if (dto.projectId) {
-      const project = await this.prisma.project.findFirst({
-        where: {
-          id: dto.projectId,
-          companyId: user.companyId,
-          isActive: true,
-          deletedAt: null,
-        },
-      });
-      if (!project) {
-        throw new BadRequestException(
-          "Project not found or does not belong to your company",
-        );
-      }
-    }
-
-    // Validate task belongs to project if provided
-    if (dto.taskId) {
-      const task = await this.prisma.task.findFirst({
-        where: {
-          id: dto.taskId,
-          projectId: dto.projectId ?? undefined,
-          isActive: true,
-        },
-      });
-      if (!task) {
-        throw new BadRequestException(
-          "Task not found or does not belong to the specified project",
-        );
-      }
-    }
-
-    // Calculate duration if end time is provided
-    const durationMinutes = endTime
-      ? Math.round((endTime.getTime() - startTime.getTime()) / 60_000)
-      : undefined;
-
-    // Determine if entry is active (no end time means it's running)
-    const isActive = !endTime;
-
-    const timeEntry = await this.prisma.timeEntry.create({
+    const workSession = await this.prisma.workSession.create({
       data: {
         userId: user.id,
         companyId: user.companyId,
-        projectId: dto.projectId ?? null,
-        taskId: dto.taskId ?? null,
-        description: dto.description ?? null,
-        startTime,
-        endTime: endTime ?? null,
-        durationMinutes: durationMinutes ?? null,
-        isActive,
+        date,
+        clockIn,
+        status: WorkStatus.WORKING,
+        notes: dto.notes ?? null,
       },
       include: {
         user: {
@@ -128,74 +97,280 @@ export class TimeTrackingService {
             lastName: true,
           },
         },
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        task: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        breaks: true,
       },
     });
 
-    this.logger.log(`Time entry created: ${timeEntry.id}`);
-    return timeEntry;
+    this.logger.log(`Work session created: ${workSession.id}`);
+    return workSession;
   }
 
-  async getTimeEntries(
+  async clockOut(
     user: IAuthUser,
-    filters: FilterTimeEntriesDto,
-  ): Promise<TimeEntriesListResponseDto> {
-    this.logger.log(`Fetching time entries for company ${user.companyId}`);
+    id: string,
+    dto: ClockOutDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Clocking out work session ${id}`);
+
+    const workSession = await this.prisma.workSession.findFirst({
+      where: {
+        id,
+        companyId: user.companyId,
+      },
+      include: {
+        breaks: true,
+      },
+    });
+
+    if (!workSession) {
+      throw new NotFoundException("Work session not found");
+    }
+
+    // Check authorization
+    if (user.role === "EMPLOYEE" && workSession.userId !== user.id) {
+      throw new ForbiddenException(
+        "You can only clock out your own work sessions",
+      );
+    }
+
+    if (workSession.status === WorkStatus.CLOCKED_OUT) {
+      throw new BadRequestException("Work session is already clocked out");
+    }
+
+    // End any active breaks
+    if (workSession.status === WorkStatus.ON_BREAK) {
+      const activeBreak = workSession.breaks.find(b => !b.endTime);
+      if (activeBreak) {
+        const breakEndTime = new Date(dto.clockOut);
+        const breakDuration = Math.round(
+          (breakEndTime.getTime() - activeBreak.startTime.getTime()) / 60_000,
+        );
+        await this.prisma.break.update({
+          where: { id: activeBreak.id },
+          data: {
+            endTime: breakEndTime,
+            durationMinutes: breakDuration,
+          },
+        });
+      }
+    }
+
+    const clockOut = new Date(dto.clockOut);
+
+    // Validate clock out time is after clock in
+    if (clockOut <= workSession.clockIn) {
+      throw new BadRequestException(
+        "Clock out time must be after clock in time",
+      );
+    }
+
+    // Calculate total hours (excluding breaks)
+    const totalBreakMinutes = workSession.breaks.reduce(
+      (sum, b) => sum + (b.durationMinutes ?? 0),
+      0,
+    );
+    const totalMinutes =
+      Math.round(
+        (clockOut.getTime() - workSession.clockIn.getTime()) / 60_000,
+      ) - totalBreakMinutes;
+    const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
+
+    const updated = await this.prisma.workSession.update({
+      where: { id },
+      data: {
+        clockOut,
+        status: WorkStatus.CLOCKED_OUT,
+        totalHours,
+        notes: dto.notes ?? undefined,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        breaks: true,
+      },
+    });
+
+    this.logger.log(`Work session clocked out: ${id}`);
+    return updated;
+  }
+
+  async startBreak(
+    user: IAuthUser,
+    sessionId: string,
+    dto: StartBreakDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Starting break for session ${sessionId}`);
+
+    const workSession = await this.prisma.workSession.findFirst({
+      where: {
+        id: sessionId,
+        companyId: user.companyId,
+      },
+    });
+
+    if (!workSession) {
+      throw new NotFoundException("Work session not found");
+    }
+
+    // Check authorization
+    if (user.role === "EMPLOYEE" && workSession.userId !== user.id) {
+      throw new ForbiddenException("You can only manage your own breaks");
+    }
+
+    if (workSession.status !== WorkStatus.WORKING) {
+      throw new BadRequestException(
+        "Can only start a break when actively working",
+      );
+    }
+
+    const startTime = new Date(dto.startTime);
+
+    // Create the break
+    await this.prisma.break.create({
+      data: {
+        workSessionId: sessionId,
+        startTime,
+      },
+    });
+
+    // Update session status
+    const updated = await this.prisma.workSession.update({
+      where: { id: sessionId },
+      data: { status: WorkStatus.ON_BREAK },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        breaks: true,
+      },
+    });
+
+    this.logger.log(`Break started for session ${sessionId}`);
+    return updated;
+  }
+
+  async endBreak(
+    user: IAuthUser,
+    sessionId: string,
+    dto: EndBreakDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Ending break for session ${sessionId}`);
+
+    const workSession = await this.prisma.workSession.findFirst({
+      where: {
+        id: sessionId,
+        companyId: user.companyId,
+      },
+      include: {
+        breaks: true,
+      },
+    });
+
+    if (!workSession) {
+      throw new NotFoundException("Work session not found");
+    }
+
+    // Check authorization
+    if (user.role === "EMPLOYEE" && workSession.userId !== user.id) {
+      throw new ForbiddenException("You can only manage your own breaks");
+    }
+
+    if (workSession.status !== WorkStatus.ON_BREAK) {
+      throw new BadRequestException("Not currently on a break");
+    }
+
+    // Find the active break
+    const activeBreak = workSession.breaks.find(b => !b.endTime);
+    if (!activeBreak) {
+      throw new BadRequestException("No active break found");
+    }
+
+    const endTime = new Date(dto.endTime);
+    const durationMinutes = Math.round(
+      (endTime.getTime() - activeBreak.startTime.getTime()) / 60_000,
+    );
+
+    // Update the break
+    await this.prisma.break.update({
+      where: { id: activeBreak.id },
+      data: {
+        endTime,
+        durationMinutes,
+      },
+    });
+
+    // Update session status
+    const updated = await this.prisma.workSession.update({
+      where: { id: sessionId },
+      data: { status: WorkStatus.WORKING },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        breaks: true,
+      },
+    });
+
+    this.logger.log(`Break ended for session ${sessionId}`);
+    return updated;
+  }
+
+  async getWorkSessions(
+    user: IAuthUser,
+    filters: FilterWorkSessionsDto,
+  ): Promise<WorkSessionsListResponseDto> {
+    this.logger.log(`Fetching work sessions for company ${user.companyId}`);
 
     // Build where clause
-    const where: Prisma.TimeEntryWhereInput = {
+    const where: Prisma.WorkSessionWhereInput = {
       companyId: user.companyId,
-      deletedAt: null,
     };
 
-    // Users can only see their own entries unless they are admin/manager
+    // Users can only see their own sessions unless they are admin/manager
     if (user.role === "EMPLOYEE") {
       where.userId = user.id;
     } else if (filters.userId) {
       where.userId = filters.userId;
     }
 
-    if (filters.projectId) {
-      where.projectId = filters.projectId;
-    }
-
-    if (filters.taskId) {
-      where.taskId = filters.taskId;
-    }
-
-    if (filters.isActive !== undefined) {
-      where.isActive = filters.isActive;
+    if (filters.status) {
+      where.status = filters.status;
     }
 
     if (filters.startDate || filters.endDate) {
-      where.startTime = {};
+      where.date = {};
       if (filters.startDate) {
-        where.startTime = {
-          ...where.startTime,
+        where.date = {
+          ...where.date,
           gte: new Date(filters.startDate),
         };
       }
       if (filters.endDate) {
-        where.startTime = {
-          ...where.startTime,
+        where.date = {
+          ...where.date,
           lte: new Date(filters.endDate),
         };
       }
     }
 
-    const [entries, total] = await Promise.all([
-      this.prisma.timeEntry.findMany({
+    const [sessions, total] = await Promise.all([
+      this.prisma.workSession.findMany({
         where,
         include: {
           user: {
@@ -206,47 +381,35 @@ export class TimeTrackingService {
               lastName: true,
             },
           },
-          project: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          task: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
+          breaks: true,
         },
         orderBy: {
-          startTime: "desc",
+          date: "desc",
         },
         skip: filters.offset,
         take: filters.limit,
       }),
-      this.prisma.timeEntry.count({ where }),
+      this.prisma.workSession.count({ where }),
     ]);
 
     return {
-      entries,
+      sessions,
       total,
       limit: filters.limit ?? 20,
       offset: filters.offset ?? 0,
     };
   }
 
-  async getTimeEntryById(
+  async getWorkSessionById(
     user: IAuthUser,
     id: string,
-  ): Promise<ITimeEntryWithRelations> {
-    this.logger.log(`Fetching time entry ${id}`);
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Fetching work session ${id}`);
 
-    const timeEntry = await this.prisma.timeEntry.findFirst({
+    const workSession = await this.prisma.workSession.findFirst({
       where: {
         id,
         companyId: user.companyId,
-        deletedAt: null,
       },
       include: {
         user: {
@@ -257,143 +420,71 @@ export class TimeTrackingService {
             lastName: true,
           },
         },
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        task: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        breaks: true,
       },
     });
 
-    if (!timeEntry) {
-      throw new NotFoundException("Time entry not found");
+    if (!workSession) {
+      throw new NotFoundException("Work session not found");
     }
 
     // Check authorization
-    if (user.role === "EMPLOYEE" && timeEntry.userId !== user.id) {
-      throw new ForbiddenException("You can only view your own time entries");
+    if (user.role === "EMPLOYEE" && workSession.userId !== user.id) {
+      throw new ForbiddenException("You can only view your own work sessions");
     }
 
-    return timeEntry;
+    return workSession;
   }
 
-  async updateTimeEntry(
+  async updateWorkSession(
     user: IAuthUser,
     id: string,
-    dto: UpdateTimeEntryDto,
-  ): Promise<ITimeEntryWithRelations> {
-    this.logger.log(`Updating time entry ${id}`);
+    dto: UpdateWorkSessionDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Updating work session ${id}`);
 
-    const timeEntry = await this.prisma.timeEntry.findFirst({
+    const workSession = await this.prisma.workSession.findFirst({
       where: {
         id,
         companyId: user.companyId,
-        deletedAt: null,
       },
     });
 
-    if (!timeEntry) {
-      throw new NotFoundException("Time entry not found");
+    if (!workSession) {
+      throw new NotFoundException("Work session not found");
     }
 
-    // Check authorization
-    if (user.role === "EMPLOYEE" && timeEntry.userId !== user.id) {
-      throw new ForbiddenException("You can only update your own time entries");
-    }
-
-    const startTime = dto.startTime
-      ? new Date(dto.startTime)
-      : timeEntry.startTime;
-
-    let endTime: Date | null;
-    if (dto.endTime === undefined) {
-      endTime = timeEntry.endTime;
-    } else if (dto.endTime === null) {
-      endTime = null;
-    } else {
-      endTime = new Date(dto.endTime);
-    }
-
-    // Validate time range
-    if (endTime && endTime <= startTime) {
-      throw new BadRequestException("End time must be after start time");
-    }
-
-    // Check for overlapping entries (excluding current entry)
-    const conflicts = await this.findConflicts(
-      timeEntry.userId,
-      user.companyId,
-      startTime,
-      endTime ?? undefined,
-      id,
-    );
-
-    if (conflicts.length > 0) {
-      throw new BadRequestException(
-        "Time entry overlaps with existing entries",
+    // Check authorization - only admins can update sessions
+    if (user.role === "EMPLOYEE") {
+      throw new ForbiddenException(
+        "Only administrators can update work sessions",
       );
     }
 
-    // Validate project if provided
-    if (dto.projectId) {
-      const project = await this.prisma.project.findFirst({
-        where: {
-          id: dto.projectId,
-          companyId: user.companyId,
-          isActive: true,
-          deletedAt: null,
-        },
-      });
-      if (!project) {
-        throw new BadRequestException(
-          "Project not found or does not belong to your company",
-        );
-      }
+    const clockIn = dto.clockIn ? new Date(dto.clockIn) : workSession.clockIn;
+
+    let clockOut: Date | null;
+    if (dto.clockOut === undefined) {
+      clockOut = workSession.clockOut;
+    } else if (dto.clockOut === null) {
+      clockOut = null;
+    } else {
+      clockOut = new Date(dto.clockOut);
     }
 
-    // Validate task if provided
-    const taskProjectId =
-      dto.projectId !== undefined ? dto.projectId : timeEntry.projectId;
-    if (dto.taskId) {
-      const task = await this.prisma.task.findFirst({
-        where: {
-          id: dto.taskId,
-          projectId: taskProjectId ?? undefined,
-          isActive: true,
-        },
-      });
-      if (!task) {
-        throw new BadRequestException(
-          "Task not found or does not belong to the specified project",
-        );
-      }
+    // Validate time range
+    if (clockOut && clockOut <= clockIn) {
+      throw new BadRequestException(
+        "Clock out time must be after clock in time",
+      );
     }
 
-    // Calculate duration if end time is provided
-    const durationMinutes = endTime
-      ? Math.round((endTime.getTime() - startTime.getTime()) / 60_000)
-      : null;
-
-    const isActive = !endTime;
-
-    const updated = await this.prisma.timeEntry.update({
+    const updated = await this.prisma.workSession.update({
       where: { id },
       data: {
-        projectId: dto.projectId !== undefined ? dto.projectId : undefined,
-        taskId: dto.taskId !== undefined ? dto.taskId : undefined,
-        description:
-          dto.description !== undefined ? dto.description : undefined,
-        startTime: dto.startTime ? startTime : undefined,
-        endTime: dto.endTime !== undefined ? endTime : undefined,
-        durationMinutes,
-        isActive,
+        clockIn: dto.clockIn ? clockIn : undefined,
+        clockOut: dto.clockOut !== undefined ? clockOut : undefined,
+        notes: dto.notes !== undefined ? dto.notes : undefined,
       },
       include: {
         user: {
@@ -404,137 +495,59 @@ export class TimeTrackingService {
             lastName: true,
           },
         },
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        task: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        breaks: true,
       },
     });
 
-    this.logger.log(`Time entry updated: ${id}`);
+    this.logger.log(`Work session updated: ${id}`);
     return updated;
   }
 
-  async deleteTimeEntry(user: IAuthUser, id: string): Promise<void> {
-    this.logger.log(`Deleting time entry ${id}`);
+  async deleteWorkSession(user: IAuthUser, id: string): Promise<void> {
+    this.logger.log(`Deleting work session ${id}`);
 
-    const timeEntry = await this.prisma.timeEntry.findFirst({
+    const workSession = await this.prisma.workSession.findFirst({
       where: {
         id,
         companyId: user.companyId,
-        deletedAt: null,
       },
     });
 
-    if (!timeEntry) {
-      throw new NotFoundException("Time entry not found");
+    if (!workSession) {
+      throw new NotFoundException("Work session not found");
     }
 
-    // Check authorization
-    if (user.role === "EMPLOYEE" && timeEntry.userId !== user.id) {
-      throw new ForbiddenException("You can only delete your own time entries");
+    // Check authorization - only admins can delete sessions
+    if (user.role === "EMPLOYEE") {
+      throw new ForbiddenException(
+        "Only administrators can delete work sessions",
+      );
     }
 
-    // Soft delete
-    await this.prisma.timeEntry.update({
+    // Hard delete (with cascade to breaks)
+    await this.prisma.workSession.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
 
-    this.logger.log(`Time entry deleted: ${id}`);
+    this.logger.log(`Work session deleted: ${id}`);
   }
 
-  async stopTimeEntry(
+  async validateWorkSession(
     user: IAuthUser,
-    id: string,
-  ): Promise<ITimeEntryWithRelations> {
-    this.logger.log(`Stopping time entry ${id}`);
-
-    const timeEntry = await this.prisma.timeEntry.findFirst({
-      where: {
-        id,
-        companyId: user.companyId,
-        deletedAt: null,
-      },
-    });
-
-    if (!timeEntry) {
-      throw new NotFoundException("Time entry not found");
-    }
-
-    // Check authorization
-    if (user.role === "EMPLOYEE" && timeEntry.userId !== user.id) {
-      throw new ForbiddenException("You can only stop your own time entries");
-    }
-
-    if (!timeEntry.isActive) {
-      throw new BadRequestException("Time entry is not active");
-    }
-
-    const endTime = new Date();
-    const durationMinutes = Math.round(
-      (endTime.getTime() - timeEntry.startTime.getTime()) / 60_000,
-    );
-
-    const updated = await this.prisma.timeEntry.update({
-      where: { id },
-      data: {
-        endTime,
-        durationMinutes,
-        isActive: false,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        task: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
-
-    this.logger.log(`Time entry stopped: ${id}`);
-    return updated;
-  }
-
-  async validateTimeEntry(
-    user: IAuthUser,
-    dto: ValidateTimeEntryDto,
+    dto: ValidateWorkSessionDto,
   ): Promise<ValidationResultDto> {
-    this.logger.log(`Validating time entry for user ${user.id}`);
+    this.logger.log(`Validating work session for user ${user.id}`);
 
     const warnings: string[] = [];
-    const startTime = new Date(dto.startTime);
-    const endTime = dto.endTime ? new Date(dto.endTime) : undefined;
+    const clockIn = new Date(dto.clockIn);
+    const clockOut = dto.clockOut ? new Date(dto.clockOut) : undefined;
 
     // Check time range
-    if (endTime && endTime <= startTime) {
+    if (clockOut && clockOut <= clockIn) {
       return {
         isValid: false,
         conflicts: [],
-        warnings: ["End time must be after start time"],
+        warnings: ["Clock out time must be after clock in time"],
       };
     }
 
@@ -542,16 +555,15 @@ export class TimeTrackingService {
     const conflicts = await this.findConflicts(
       user.id,
       user.companyId,
-      startTime,
-      endTime,
-      dto.timeEntryId,
+      clockIn,
+      dto.workSessionId,
     );
 
     // Add warnings
-    if (endTime) {
-      const duration = (endTime.getTime() - startTime.getTime()) / 60_000;
+    if (clockOut) {
+      const duration = (clockOut.getTime() - clockIn.getTime()) / 60_000;
       if (duration > 12 * 60) {
-        warnings.push("Time entry exceeds 12 hours");
+        warnings.push("Work session exceeds 12 hours");
       }
     }
 
@@ -564,17 +576,10 @@ export class TimeTrackingService {
 
   async getConflicts(
     user: IAuthUser,
-    startTime: Date,
-    endTime?: Date,
+    clockIn: Date,
     excludeId?: string,
   ): Promise<ITimeConflict[]> {
-    return this.findConflicts(
-      user.id,
-      user.companyId,
-      startTime,
-      endTime,
-      excludeId,
-    );
+    return this.findConflicts(user.id, user.companyId, clockIn, excludeId);
   }
 
   async getDailySummary(user: IAuthUser, date: Date): Promise<IDailySummary> {
@@ -586,21 +591,20 @@ export class TimeTrackingService {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const where: Prisma.TimeEntryWhereInput = {
+    const where: Prisma.WorkSessionWhereInput = {
       companyId: user.companyId,
-      deletedAt: null,
-      startTime: {
+      date: {
         gte: startOfDay,
         lte: endOfDay,
       },
     };
 
-    // Employees can only see their own entries
+    // Employees can only see their own sessions
     if (user.role === "EMPLOYEE") {
       where.userId = user.id;
     }
 
-    const entries = await this.prisma.timeEntry.findMany({
+    const sessions = await this.prisma.workSession.findMany({
       where,
       include: {
         user: {
@@ -611,34 +615,25 @@ export class TimeTrackingService {
             lastName: true,
           },
         },
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        task: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        breaks: true,
       },
       orderBy: {
-        startTime: "asc",
+        clockIn: "asc",
       },
     });
 
-    const totalMinutes = entries.reduce(
-      (sum, entry) => sum + (entry.durationMinutes ?? 0),
-      0,
-    );
+    let totalMinutes = 0;
+    for (const session of sessions) {
+      if (session.totalHours) {
+        totalMinutes += session.totalHours.toNumber() * 60;
+      }
+    }
 
     return {
       date: startOfDay.toISOString().split("T")[0],
-      totalMinutes,
+      totalMinutes: Math.round(totalMinutes),
       totalHours: Math.round((totalMinutes / 60) * 100) / 100,
-      entries,
+      sessions,
     };
   }
 
@@ -708,82 +703,67 @@ export class TimeTrackingService {
     };
   }
 
+  async getActiveSession(
+    user: IAuthUser,
+  ): Promise<IWorkSessionWithRelations | null> {
+    const session = await this.prisma.workSession.findFirst({
+      where: {
+        userId: user.id,
+        companyId: user.companyId,
+        status: { in: [WorkStatus.WORKING, WorkStatus.ON_BREAK] },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        breaks: true,
+      },
+    });
+
+    return session;
+  }
+
   private async findConflicts(
     userId: string,
     companyId: string,
-    startTime: Date,
-    endTime?: Date,
+    clockIn: Date,
     excludeId?: string,
   ): Promise<ITimeConflict[]> {
-    // Find overlapping entries
-    // An entry overlaps if:
-    // 1. It starts before the new entry ends AND ends after the new entry starts
-    // 2. For active entries (no end time), any entry that starts before them or is also active
+    // Find sessions on the same date
+    const date = new Date(clockIn);
+    date.setHours(0, 0, 0, 0);
 
-    const where: Prisma.TimeEntryWhereInput = {
+    const where: Prisma.WorkSessionWhereInput = {
       userId,
       companyId,
-      deletedAt: null,
+      date,
     };
 
     if (excludeId) {
       where.id = { not: excludeId };
     }
 
-    const existingEntries = await this.prisma.timeEntry.findMany({
+    const existingSessions = await this.prisma.workSession.findMany({
       where,
       select: {
         id: true,
-        startTime: true,
-        endTime: true,
-        description: true,
+        date: true,
+        clockIn: true,
+        clockOut: true,
       },
     });
 
-    const conflicts: ITimeConflict[] = [];
-
-    for (const entry of existingEntries) {
-      const entryStart = entry.startTime;
-      const entryEnd = entry.endTime;
-
-      let hasConflict = false;
-
-      if (endTime) {
-        if (entryEnd) {
-          // Both have end times - Standard overlap check
-          if (startTime < entryEnd && endTime > entryStart) {
-            hasConflict = true;
-          }
-        } else {
-          // Existing entry has no end time (is active)
-          // Conflict if new entry overlaps with start of existing
-          if (endTime > entryStart) {
-            hasConflict = true;
-          }
-        }
-      } else {
-        // New entry has no end time (is active)
-        // Conflict if existing entry is also active or ends after new entry starts
-        if (entryEnd) {
-          if (entryEnd > startTime) {
-            hasConflict = true;
-          }
-        } else {
-          hasConflict = true;
-        }
-      }
-
-      if (hasConflict) {
-        conflicts.push({
-          conflictingEntryId: entry.id,
-          startTime: entry.startTime,
-          endTime: entry.endTime,
-          description: entry.description,
-        });
-      }
-    }
-
-    return conflicts;
+    return existingSessions.map(session => ({
+      conflictingSessionId: session.id,
+      date: session.date,
+      clockIn: session.clockIn,
+      clockOut: session.clockOut,
+    }));
   }
 
   private getWeekBounds(
@@ -812,6 +792,8 @@ export class TimeTrackingService {
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d.getTime() - yearStart.getTime()) / MS_PER_DAY + 1) / 7);
+    return Math.ceil(
+      ((d.getTime() - yearStart.getTime()) / MS_PER_DAY + 1) / 7,
+    );
   }
 }

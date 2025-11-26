@@ -1,43 +1,36 @@
+import { type Break, type WorkSession } from "@prisma/client";
+
 import {
   type IDailySummary,
   type IMonthlySummary,
   type ITimeConflict,
-  type ITimeEntryWithRelations,
   type IWeeklySummary,
+  type IWorkSessionWithRelations,
 } from "../interfaces";
 
-export class TimeEntryResponseDto implements ITimeEntryWithRelations {
+export class WorkSessionResponseDto implements IWorkSessionWithRelations {
   id!: string;
   userId!: string;
   companyId!: string;
-  projectId!: string | null;
-  taskId!: string | null;
-  description!: string | null;
-  startTime!: Date;
-  endTime!: Date | null;
-  durationMinutes!: number | null;
-  isActive!: boolean;
+  date!: Date;
+  clockIn!: Date;
+  clockOut!: Date | null;
+  status!: WorkSession["status"];
+  totalHours!: WorkSession["totalHours"];
+  notes!: string | null;
   createdAt!: Date;
   updatedAt!: Date;
-  deletedAt!: Date | null;
   user?: {
     id: string;
     email: string;
     firstName: string;
     lastName: string;
   };
-  project?: {
-    id: string;
-    name: string;
-  } | null;
-  task?: {
-    id: string;
-    name: string;
-  } | null;
+  breaks?: Break[];
 }
 
-export class TimeEntriesListResponseDto {
-  entries!: TimeEntryResponseDto[];
+export class WorkSessionsListResponseDto {
+  sessions!: WorkSessionResponseDto[];
   total!: number;
   limit!: number;
   offset!: number;
@@ -53,7 +46,7 @@ export class DailySummaryResponseDto implements IDailySummary {
   date!: string;
   totalMinutes!: number;
   totalHours!: number;
-  entries!: ITimeEntryWithRelations[];
+  sessions!: IWorkSessionWithRelations[];
 }
 
 export class WeeklySummaryResponseDto implements IWeeklySummary {

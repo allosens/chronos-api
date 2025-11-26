@@ -22,8 +22,6 @@ model Company {
   companySettings        CompanySetting[]
   employees              Employee[]
   invoices               Invoice[]
-  projects               Project[]
-  timeEntries            TimeEntry[]
   timeCorrectionRequests TimeCorrectionRequest[]
   users                  User[]
   workSessions           WorkSession[]
@@ -52,7 +50,6 @@ model User {
   employee                      Employee?
   passwordResetTokens           PasswordResetToken[]
   refreshTokens                 RefreshToken[]
-  timeEntries                   TimeEntry[]
   createdTimeCorrectionRequests TimeCorrectionRequest[] @relation("TimeCorrectionReviewedBy")
   timeCorrectionRequests        TimeCorrectionRequest[]
   company                       Company?                @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -244,63 +241,6 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
-}
-
-model Project {
-  id          String      @id @default(uuid())
-  companyId   String
-  name        String      @db.VarChar(255)
-  description String?
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  deletedAt   DateTime?
-  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  tasks       Task[]
-  timeEntries TimeEntry[]
-
-  @@map("projects")
-}
-
-model Task {
-  id          String      @id @default(uuid())
-  projectId   String
-  name        String      @db.VarChar(255)
-  description String?
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  timeEntries TimeEntry[]
-
-  @@map("tasks")
-}
-
-model TimeEntry {
-  id              String    @id @default(uuid())
-  userId          String
-  companyId       String
-  projectId       String?
-  taskId          String?
-  description     String?
-  startTime       DateTime
-  endTime         DateTime?
-  durationMinutes Int?
-  isActive        Boolean   @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  project         Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  task            Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([companyId])
-  @@index([projectId])
-  @@index([startTime, endTime])
-  @@index([userId, isActive], map: "idx_time_entries_user_active")
-  @@map("time_entries")
 }
 
 enum UserRole {

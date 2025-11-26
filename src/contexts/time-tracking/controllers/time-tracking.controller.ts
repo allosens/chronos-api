@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Inject,
   Logger,
   Param,
   ParseUUIDPipe,
@@ -20,137 +19,168 @@ import { CurrentUser } from "@/contexts/auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "@/contexts/auth/guards/jwt-auth.guard";
 import { type IAuthUser } from "@/contexts/auth/interfaces/auth-user.interface";
 
-import { type ITimeEntryWithRelations } from "../interfaces";
 import {
-  CreateTimeEntryDto,
-  type DailySummaryResponseDto,
-  FilterTimeEntriesDto,
-  type MonthlySummaryResponseDto,
-  type TimeEntriesListResponseDto,
+  type IDailySummary,
+  type IMonthlySummary,
+  type ITimeConflict,
+  type IWeeklySummary,
+  type IWorkSessionWithRelations,
+} from "../interfaces";
+import {
+  ClockInDto,
+  ClockOutDto,
+  EndBreakDto,
+  FilterWorkSessionsDto,
+  StartBreakDto,
   TimeReportQueryDto,
-  UpdateTimeEntryDto,
-  ValidateTimeEntryDto,
+  UpdateWorkSessionDto,
+  ValidateWorkSessionDto,
   type ValidationResultDto,
-  type WeeklySummaryResponseDto,
+  type WorkSessionsListResponseDto,
 } from "../models";
 import { TimeTrackingService } from "../services/time-tracking.service";
 
-@Controller("v1/time-entries")
+@Controller("v1/work-sessions")
 @UseGuards(JwtAuthGuard)
-export class TimeEntriesController {
-  constructor(
-    @Inject(Logger) private readonly logger: Logger,
-    private readonly timeTrackingService: TimeTrackingService,
-  ) {}
+export class TimeTrackingController {
+  private readonly logger = new Logger(TimeTrackingController.name);
 
-  @Post()
+  constructor(private readonly timeTrackingService: TimeTrackingService) {}
+
+  @Post("clock-in")
   @HttpCode(HttpStatus.CREATED)
-  async createTimeEntry(
+  async clockIn(
     @CurrentUser() user: IAuthUser,
-    @Body() dto: CreateTimeEntryDto,
-  ): Promise<ITimeEntryWithRelations> {
-    this.logger.log(`Creating time entry for user: ${user.id}`);
-    return this.timeTrackingService.createTimeEntry(user, dto);
+    @Body() dto: ClockInDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Clock in request for user ${user.id}`);
+    return this.timeTrackingService.clockIn(user, dto);
+  }
+
+  @Patch(":id/clock-out")
+  async clockOut(
+    @CurrentUser() user: IAuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: ClockOutDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Clock out request for session ${id}`);
+    return this.timeTrackingService.clockOut(user, id, dto);
+  }
+
+  @Post(":id/breaks/start")
+  @HttpCode(HttpStatus.OK)
+  async startBreak(
+    @CurrentUser() user: IAuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: StartBreakDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Start break request for session ${id}`);
+    return this.timeTrackingService.startBreak(user, id, dto);
+  }
+
+  @Patch(":id/breaks/end")
+  async endBreak(
+    @CurrentUser() user: IAuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: EndBreakDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`End break request for session ${id}`);
+    return this.timeTrackingService.endBreak(user, id, dto);
   }
 
   @Get()
-  async getTimeEntries(
+  async getWorkSessions(
     @CurrentUser() user: IAuthUser,
-    @Query() filters: FilterTimeEntriesDto,
-  ): Promise<TimeEntriesListResponseDto> {
-    this.logger.log(`Fetching time entries for company: ${user.companyId}`);
-    return this.timeTrackingService.getTimeEntries(user, filters);
+    @Query() filters: FilterWorkSessionsDto,
+  ): Promise<WorkSessionsListResponseDto> {
+    this.logger.log(`Get work sessions for company ${user.companyId}`);
+    return this.timeTrackingService.getWorkSessions(user, filters);
+  }
+
+  @Get("active")
+  async getActiveSession(
+    @CurrentUser() user: IAuthUser,
+  ): Promise<IWorkSessionWithRelations | null> {
+    this.logger.log(`Get active session for user ${user.id}`);
+    return this.timeTrackingService.getActiveSession(user);
   }
 
   @Get(":id")
-  async getTimeEntry(
+  async getWorkSessionById(
     @CurrentUser() user: IAuthUser,
     @Param("id", ParseUUIDPipe) id: string,
-  ): Promise<ITimeEntryWithRelations> {
-    this.logger.log(`Fetching time entry: ${id}`);
-    return this.timeTrackingService.getTimeEntryById(user, id);
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Get work session ${id}`);
+    return this.timeTrackingService.getWorkSessionById(user, id);
   }
 
   @Put(":id")
-  async updateTimeEntry(
+  async updateWorkSession(
     @CurrentUser() user: IAuthUser,
     @Param("id", ParseUUIDPipe) id: string,
-    @Body() dto: UpdateTimeEntryDto,
-  ): Promise<ITimeEntryWithRelations> {
-    this.logger.log(`Updating time entry: ${id}`);
-    return this.timeTrackingService.updateTimeEntry(user, id, dto);
+    @Body() dto: UpdateWorkSessionDto,
+  ): Promise<IWorkSessionWithRelations> {
+    this.logger.log(`Update work session ${id}`);
+    return this.timeTrackingService.updateWorkSession(user, id, dto);
   }
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteTimeEntry(
+  async deleteWorkSession(
     @CurrentUser() user: IAuthUser,
     @Param("id", ParseUUIDPipe) id: string,
   ): Promise<void> {
-    this.logger.log(`Deleting time entry: ${id}`);
-    await this.timeTrackingService.deleteTimeEntry(user, id);
-  }
-
-  @Patch(":id/stop")
-  async stopTimeEntry(
-    @CurrentUser() user: IAuthUser,
-    @Param("id", ParseUUIDPipe) id: string,
-  ): Promise<ITimeEntryWithRelations> {
-    this.logger.log(`Stopping time entry: ${id}`);
-    return this.timeTrackingService.stopTimeEntry(user, id);
+    this.logger.log(`Delete work session ${id}`);
+    return this.timeTrackingService.deleteWorkSession(user, id);
   }
 
   @Post("validate")
   @HttpCode(HttpStatus.OK)
-  async validateTimeEntry(
+  async validateWorkSession(
     @CurrentUser() user: IAuthUser,
-    @Body() dto: ValidateTimeEntryDto,
+    @Body() dto: ValidateWorkSessionDto,
   ): Promise<ValidationResultDto> {
-    this.logger.log(`Validating time entry for user: ${user.id}`);
-    return this.timeTrackingService.validateTimeEntry(user, dto);
+    this.logger.log(`Validate work session for user ${user.id}`);
+    return this.timeTrackingService.validateWorkSession(user, dto);
   }
 
   @Get("conflicts/check")
   async getConflicts(
     @CurrentUser() user: IAuthUser,
-    @Query("startTime") startTime: string,
-    @Query("endTime") endTime?: string,
+    @Query("clockIn") clockIn: string,
     @Query("excludeId") excludeId?: string,
-  ): Promise<{ conflicts: unknown[] }> {
-    this.logger.log(`Checking conflicts for user: ${user.id}`);
-    const conflicts = await this.timeTrackingService.getConflicts(
+  ): Promise<ITimeConflict[]> {
+    this.logger.log(`Check conflicts for user ${user.id}`);
+    return this.timeTrackingService.getConflicts(
       user,
-      new Date(startTime),
-      endTime ? new Date(endTime) : undefined,
+      new Date(clockIn),
       excludeId,
     );
-    return { conflicts };
   }
 }
 
 @Controller("v1/time-reports")
 @UseGuards(JwtAuthGuard)
 export class TimeReportsController {
-  constructor(
-    @Inject(Logger) private readonly logger: Logger,
-    private readonly timeTrackingService: TimeTrackingService,
-  ) {}
+  private readonly logger = new Logger(TimeReportsController.name);
+
+  constructor(private readonly timeTrackingService: TimeTrackingService) {}
 
   @Get("daily")
-  async getDailyReport(
+  async getDailySummary(
     @CurrentUser() user: IAuthUser,
     @Query() query: TimeReportQueryDto,
-  ): Promise<DailySummaryResponseDto> {
+  ): Promise<IDailySummary> {
     const date = query.date ? new Date(query.date) : new Date();
     this.logger.log(`Getting daily report for ${date.toISOString()}`);
     return this.timeTrackingService.getDailySummary(user, date);
   }
 
   @Get("weekly")
-  async getWeeklyReport(
+  async getWeeklySummary(
     @CurrentUser() user: IAuthUser,
     @Query() query: TimeReportQueryDto,
-  ): Promise<WeeklySummaryResponseDto> {
+  ): Promise<IWeeklySummary> {
     const now = new Date();
     const year = query.year ?? now.getFullYear();
     const week = query.week ?? this.getCurrentWeek();
@@ -159,10 +189,10 @@ export class TimeReportsController {
   }
 
   @Get("monthly")
-  async getMonthlyReport(
+  async getMonthlySummary(
     @CurrentUser() user: IAuthUser,
     @Query() query: TimeReportQueryDto,
-  ): Promise<MonthlySummaryResponseDto> {
+  ): Promise<IMonthlySummary> {
     const now = new Date();
     const year = query.year ?? now.getFullYear();
     const month = query.month ?? now.getMonth() + 1;

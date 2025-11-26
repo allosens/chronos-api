@@ -40,468 +40,518 @@ describe("TimeTrackingService", () => {
 
   beforeEach(() => {
     prismaService = createMock<PrismaService>({
-      timeEntry: {
+      workSession: {
         create: vi.fn(),
         findMany: vi.fn(),
         findFirst: vi.fn(),
         count: vi.fn(),
         update: vi.fn(),
+        delete: vi.fn(),
       } as any,
-      project: {
-        findFirst: vi.fn(),
-      } as any,
-      task: {
-        findFirst: vi.fn(),
+      break: {
+        create: vi.fn(),
+        update: vi.fn(),
       } as any,
     });
     service = new TimeTrackingService(prismaService);
   });
 
-  describe("createTimeEntry", () => {
-    it("should create a time entry successfully", async () => {
+  describe("clockIn", () => {
+    it("should clock in successfully", async () => {
       const dto = {
-        startTime: "2024-01-15T09:00:00Z",
-        endTime: "2024-01-15T17:00:00Z",
-        description: "Working on feature",
+        clockIn: "2024-01-15T09:00:00Z",
+        notes: "Starting work",
       };
 
-      const mockTimeEntry = {
-        id: "entry-123",
+      const mockWorkSession = {
+        id: "session-123",
         userId: mockUser.id,
         companyId: mockUser.companyId,
-        projectId: null,
-        taskId: null,
-        description: dto.description,
-        startTime: new Date(dto.startTime),
-        endTime: new Date(dto.endTime),
-        durationMinutes: 480,
-        isActive: false,
+        date: new Date("2024-01-15"),
+        clockIn: new Date(dto.clockIn),
+        clockOut: null,
+        status: "WORKING",
+        totalHours: null,
+        notes: dto.notes,
         createdAt: new Date(),
         updatedAt: new Date(),
-        deletedAt: null,
         user: {
           id: mockUser.id,
           email: mockUser.email,
           firstName: mockUser.firstName,
           lastName: mockUser.lastName,
         },
-        project: null,
-        task: null,
+        breaks: [],
       };
 
-      (prismaService.timeEntry.findMany as any).mockResolvedValue([]);
-      (prismaService.timeEntry.create as any).mockResolvedValue(mockTimeEntry);
-
-      const result = await service.createTimeEntry(mockUser, dto);
-
-      expect(result).toEqual(mockTimeEntry);
-      expect(prismaService.timeEntry.create).toHaveBeenCalled();
-    });
-
-    it("should create an active time entry when no end time is provided", async () => {
-      const dto = {
-        startTime: "2024-01-15T09:00:00Z",
-        description: "Starting work",
-      };
-
-      const mockTimeEntry = {
-        id: "entry-123",
-        userId: mockUser.id,
-        companyId: mockUser.companyId,
-        projectId: null,
-        taskId: null,
-        description: dto.description,
-        startTime: new Date(dto.startTime),
-        endTime: null,
-        durationMinutes: null,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        deletedAt: null,
-        user: {
-          id: mockUser.id,
-          email: mockUser.email,
-          firstName: mockUser.firstName,
-          lastName: mockUser.lastName,
-        },
-        project: null,
-        task: null,
-      };
-
-      (prismaService.timeEntry.findMany as any).mockResolvedValue([]);
-      (prismaService.timeEntry.create as any).mockResolvedValue(mockTimeEntry);
-
-      const result = await service.createTimeEntry(mockUser, dto);
-
-      expect(result.isActive).toBe(true);
-      expect(result.endTime).toBeNull();
-    });
-
-    it("should throw BadRequestException when end time is before start time", async () => {
-      const dto = {
-        startTime: "2024-01-15T17:00:00Z",
-        endTime: "2024-01-15T09:00:00Z",
-      };
-
-      await expect(service.createTimeEntry(mockUser, dto)).rejects.toThrow(
-        BadRequestException,
+      (prismaService.workSession.findFirst as any).mockResolvedValue(null);
+      (prismaService.workSession.findMany as any).mockResolvedValue([]);
+      (prismaService.workSession.create as any).mockResolvedValue(
+        mockWorkSession,
       );
+
+      const result = await service.clockIn(mockUser, dto);
+
+      expect(result.status).toBe("WORKING");
+      expect(result.clockOut).toBeNull();
     });
 
-    it("should throw BadRequestException when there are conflicting entries", async () => {
+    it("should throw BadRequestException when already clocked in", async () => {
       const dto = {
-        startTime: "2024-01-15T09:00:00Z",
-        endTime: "2024-01-15T17:00:00Z",
+        clockIn: "2024-01-15T09:00:00Z",
       };
 
-      const conflictingEntry = {
-        id: "existing-entry",
-        startTime: new Date("2024-01-15T10:00:00Z"),
-        endTime: new Date("2024-01-15T12:00:00Z"),
-        description: "Existing entry",
-      };
+      (prismaService.workSession.findFirst as any).mockResolvedValue({
+        id: "existing-session",
+        status: "WORKING",
+      });
 
-      (prismaService.timeEntry.findMany as any).mockResolvedValue([
-        conflictingEntry,
-      ]);
-
-      await expect(service.createTimeEntry(mockUser, dto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it("should validate project belongs to company", async () => {
-      const dto = {
-        startTime: "2024-01-15T09:00:00Z",
-        endTime: "2024-01-15T17:00:00Z",
-        projectId: "project-123",
-      };
-
-      (prismaService.timeEntry.findMany as any).mockResolvedValue([]);
-      (prismaService.project.findFirst as any).mockResolvedValue(null);
-
-      await expect(service.createTimeEntry(mockUser, dto)).rejects.toThrow(
+      await expect(service.clockIn(mockUser, dto)).rejects.toThrow(
         BadRequestException,
       );
     });
   });
 
-  describe("getTimeEntries", () => {
-    it("should return time entries for a user", async () => {
+  describe("clockOut", () => {
+    it("should clock out successfully", async () => {
+      const mockSession = {
+        id: "session-123",
+        userId: mockUser.id,
+        companyId: mockUser.companyId,
+        clockIn: new Date("2024-01-15T09:00:00Z"),
+        clockOut: null,
+        status: "WORKING",
+        breaks: [],
+      };
+
+      const clockedOutSession = {
+        ...mockSession,
+        clockOut: new Date("2024-01-15T17:00:00Z"),
+        status: "CLOCKED_OUT",
+        totalHours: 8,
+        user: {
+          id: mockUser.id,
+          email: mockUser.email,
+          firstName: mockUser.firstName,
+          lastName: mockUser.lastName,
+        },
+      };
+
+      (prismaService.workSession.findFirst as any).mockResolvedValue(
+        mockSession,
+      );
+      (prismaService.workSession.update as any).mockResolvedValue(
+        clockedOutSession,
+      );
+
+      const result = await service.clockOut(mockUser, "session-123", {
+        clockOut: "2024-01-15T17:00:00Z",
+      });
+
+      expect(result.status).toBe("CLOCKED_OUT");
+    });
+
+    it("should throw NotFoundException when session not found", async () => {
+      (prismaService.workSession.findFirst as any).mockResolvedValue(null);
+
+      await expect(
+        service.clockOut(mockUser, "non-existent", {
+          clockOut: "2024-01-15T17:00:00Z",
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw BadRequestException when already clocked out", async () => {
+      (prismaService.workSession.findFirst as any).mockResolvedValue({
+        id: "session-123",
+        userId: mockUser.id,
+        status: "CLOCKED_OUT",
+        breaks: [],
+      });
+
+      await expect(
+        service.clockOut(mockUser, "session-123", {
+          clockOut: "2024-01-15T17:00:00Z",
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("startBreak", () => {
+    it("should start a break when working", async () => {
+      const mockSession = {
+        id: "session-123",
+        userId: mockUser.id,
+        companyId: mockUser.companyId,
+        status: "WORKING",
+      };
+
+      const sessionOnBreak = {
+        ...mockSession,
+        status: "ON_BREAK",
+        user: {
+          id: mockUser.id,
+          email: mockUser.email,
+          firstName: mockUser.firstName,
+          lastName: mockUser.lastName,
+        },
+        breaks: [
+          {
+            id: "break-123",
+            startTime: new Date("2024-01-15T12:00:00Z"),
+          },
+        ],
+      };
+
+      (prismaService.workSession.findFirst as any).mockResolvedValue(
+        mockSession,
+      );
+      (prismaService.break.create as any).mockResolvedValue(
+        sessionOnBreak.breaks[0],
+      );
+      (prismaService.workSession.update as any).mockResolvedValue(
+        sessionOnBreak,
+      );
+
+      const result = await service.startBreak(mockUser, "session-123", {
+        startTime: "2024-01-15T12:00:00Z",
+      });
+
+      expect(result.status).toBe("ON_BREAK");
+    });
+
+    it("should throw BadRequestException when not working", async () => {
+      (prismaService.workSession.findFirst as any).mockResolvedValue({
+        id: "session-123",
+        userId: mockUser.id,
+        status: "ON_BREAK",
+      });
+
+      await expect(
+        service.startBreak(mockUser, "session-123", {
+          startTime: "2024-01-15T12:00:00Z",
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("endBreak", () => {
+    it("should end a break", async () => {
+      const mockSession = {
+        id: "session-123",
+        userId: mockUser.id,
+        companyId: mockUser.companyId,
+        status: "ON_BREAK",
+        breaks: [
+          {
+            id: "break-123",
+            startTime: new Date("2024-01-15T12:00:00Z"),
+            endTime: null,
+          },
+        ],
+      };
+
+      const workingSession = {
+        ...mockSession,
+        status: "WORKING",
+        user: {
+          id: mockUser.id,
+          email: mockUser.email,
+          firstName: mockUser.firstName,
+          lastName: mockUser.lastName,
+        },
+        breaks: [
+          {
+            ...mockSession.breaks[0],
+            endTime: new Date("2024-01-15T12:30:00Z"),
+            durationMinutes: 30,
+          },
+        ],
+      };
+
+      (prismaService.workSession.findFirst as any).mockResolvedValue(
+        mockSession,
+      );
+      (prismaService.break.update as any).mockResolvedValue(
+        workingSession.breaks[0],
+      );
+      (prismaService.workSession.update as any).mockResolvedValue(
+        workingSession,
+      );
+
+      const result = await service.endBreak(mockUser, "session-123", {
+        endTime: "2024-01-15T12:30:00Z",
+      });
+
+      expect(result.status).toBe("WORKING");
+    });
+
+    it("should throw BadRequestException when not on break", async () => {
+      (prismaService.workSession.findFirst as any).mockResolvedValue({
+        id: "session-123",
+        userId: mockUser.id,
+        status: "WORKING",
+        breaks: [],
+      });
+
+      await expect(
+        service.endBreak(mockUser, "session-123", {
+          endTime: "2024-01-15T12:30:00Z",
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("getWorkSessions", () => {
+    it("should return work sessions for a user", async () => {
       const filters = { limit: 10, offset: 0 };
 
-      const mockEntries = [
+      const mockSessions = [
         {
-          id: "entry-1",
+          id: "session-1",
           userId: mockUser.id,
           companyId: mockUser.companyId,
-          startTime: new Date("2024-01-15T09:00:00Z"),
-          endTime: new Date("2024-01-15T17:00:00Z"),
-          durationMinutes: 480,
-          isActive: false,
+          date: new Date("2024-01-15"),
+          clockIn: new Date("2024-01-15T09:00:00Z"),
+          clockOut: new Date("2024-01-15T17:00:00Z"),
+          status: "CLOCKED_OUT",
         },
       ];
 
-      (prismaService.timeEntry.findMany as any).mockResolvedValue(mockEntries);
-      (prismaService.timeEntry.count as any).mockResolvedValue(1);
+      (prismaService.workSession.findMany as any).mockResolvedValue(
+        mockSessions,
+      );
+      (prismaService.workSession.count as any).mockResolvedValue(1);
 
-      const result = await service.getTimeEntries(mockUser, filters);
+      const result = await service.getWorkSessions(mockUser, filters);
 
-      expect(result.entries).toEqual(mockEntries);
+      expect(result.sessions).toEqual(mockSessions);
       expect(result.total).toBe(1);
-      expect(result.limit).toBe(10);
-      expect(result.offset).toBe(0);
     });
 
-    it("should filter by project when provided", async () => {
-      const filters = { projectId: "project-123", limit: 10, offset: 0 };
+    it("should filter by status when provided", async () => {
+      const filters = { status: "WORKING" as const, limit: 10, offset: 0 };
 
-      (prismaService.timeEntry.findMany as any).mockResolvedValue([]);
-      (prismaService.timeEntry.count as any).mockResolvedValue(0);
+      (prismaService.workSession.findMany as any).mockResolvedValue([]);
+      (prismaService.workSession.count as any).mockResolvedValue(0);
 
-      await service.getTimeEntries(mockUser, filters);
+      await service.getWorkSessions(mockUser, filters);
 
-      expect(prismaService.timeEntry.findMany).toHaveBeenCalledWith(
+      expect(prismaService.workSession.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            projectId: "project-123",
+            status: "WORKING",
           }),
         }),
       );
     });
   });
 
-  describe("getTimeEntryById", () => {
-    it("should return a time entry by id", async () => {
-      const mockEntry = {
-        id: "entry-123",
+  describe("getWorkSessionById", () => {
+    it("should return a work session by id", async () => {
+      const mockSession = {
+        id: "session-123",
         userId: mockUser.id,
         companyId: mockUser.companyId,
-        startTime: new Date("2024-01-15T09:00:00Z"),
-        endTime: new Date("2024-01-15T17:00:00Z"),
-        durationMinutes: 480,
-        isActive: false,
+        date: new Date("2024-01-15"),
+        clockIn: new Date("2024-01-15T09:00:00Z"),
+        clockOut: new Date("2024-01-15T17:00:00Z"),
+        status: "CLOCKED_OUT",
       };
 
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(mockEntry);
+      (prismaService.workSession.findFirst as any).mockResolvedValue(
+        mockSession,
+      );
 
-      const result = await service.getTimeEntryById(mockUser, "entry-123");
+      const result = await service.getWorkSessionById(mockUser, "session-123");
 
-      expect(result).toEqual(mockEntry);
+      expect(result).toEqual(mockSession);
     });
 
-    it("should throw NotFoundException when entry does not exist", async () => {
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(null);
+    it("should throw NotFoundException when session does not exist", async () => {
+      (prismaService.workSession.findFirst as any).mockResolvedValue(null);
 
       await expect(
-        service.getTimeEntryById(mockUser, "non-existent"),
+        service.getWorkSessionById(mockUser, "non-existent"),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it("should throw ForbiddenException when employee tries to access another users entry", async () => {
-      const mockEntry = {
-        id: "entry-123",
+    it("should throw ForbiddenException when employee tries to access another users session", async () => {
+      const mockSession = {
+        id: "session-123",
         userId: "other-user",
         companyId: mockUser.companyId,
-        startTime: new Date("2024-01-15T09:00:00Z"),
-        endTime: new Date("2024-01-15T17:00:00Z"),
       };
 
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(mockEntry);
+      (prismaService.workSession.findFirst as any).mockResolvedValue(
+        mockSession,
+      );
 
       await expect(
-        service.getTimeEntryById(mockUser, "entry-123"),
+        service.getWorkSessionById(mockUser, "session-123"),
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("should allow admin to access any entry in company", async () => {
-      const mockEntry = {
-        id: "entry-123",
+    it("should allow admin to access any session in company", async () => {
+      const mockSession = {
+        id: "session-123",
         userId: "other-user",
         companyId: mockAdminUser.companyId,
-        startTime: new Date("2024-01-15T09:00:00Z"),
-        endTime: new Date("2024-01-15T17:00:00Z"),
       };
 
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(mockEntry);
+      (prismaService.workSession.findFirst as any).mockResolvedValue(
+        mockSession,
+      );
 
-      const result = await service.getTimeEntryById(mockAdminUser, "entry-123");
+      const result = await service.getWorkSessionById(
+        mockAdminUser,
+        "session-123",
+      );
 
-      expect(result).toEqual(mockEntry);
+      expect(result).toEqual(mockSession);
     });
   });
 
-  describe("updateTimeEntry", () => {
-    it("should update a time entry successfully", async () => {
-      const existingEntry = {
-        id: "entry-123",
+  describe("deleteWorkSession", () => {
+    it("should delete a work session (admin only)", async () => {
+      const mockSession = {
+        id: "session-123",
+        userId: mockUser.id,
+        companyId: mockAdminUser.companyId,
+      };
+
+      (prismaService.workSession.findFirst as any).mockResolvedValue(
+        mockSession,
+      );
+      (prismaService.workSession.delete as any).mockResolvedValue(mockSession);
+
+      await service.deleteWorkSession(mockAdminUser, "session-123");
+
+      expect(prismaService.workSession.delete).toHaveBeenCalledWith({
+        where: { id: "session-123" },
+      });
+    });
+
+    it("should throw ForbiddenException when employee tries to delete", async () => {
+      const mockSession = {
+        id: "session-123",
         userId: mockUser.id,
         companyId: mockUser.companyId,
-        projectId: null,
-        startTime: new Date("2024-01-15T09:00:00Z"),
-        endTime: new Date("2024-01-15T17:00:00Z"),
-        durationMinutes: 480,
-        isActive: false,
       };
 
-      const updatedEntry = {
-        ...existingEntry,
-        description: "Updated description",
-      };
-
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(
-        existingEntry,
+      (prismaService.workSession.findFirst as any).mockResolvedValue(
+        mockSession,
       );
-      (prismaService.timeEntry.findMany as any).mockResolvedValue([]);
-      (prismaService.timeEntry.update as any).mockResolvedValue(updatedEntry);
-
-      const result = await service.updateTimeEntry(mockUser, "entry-123", {
-        description: "Updated description",
-      });
-
-      expect(result.description).toBe("Updated description");
-    });
-
-    it("should throw NotFoundException when entry does not exist", async () => {
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(null);
 
       await expect(
-        service.updateTimeEntry(mockUser, "non-existent", {}),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it("should throw ForbiddenException when employee tries to update another users entry", async () => {
-      const mockEntry = {
-        id: "entry-123",
-        userId: "other-user",
-        companyId: mockUser.companyId,
-      };
-
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(mockEntry);
-
-      await expect(
-        service.updateTimeEntry(mockUser, "entry-123", {}),
+        service.deleteWorkSession(mockUser, "session-123"),
       ).rejects.toThrow(ForbiddenException);
     });
   });
 
-  describe("deleteTimeEntry", () => {
-    it("should soft delete a time entry", async () => {
-      const mockEntry = {
-        id: "entry-123",
-        userId: mockUser.id,
-        companyId: mockUser.companyId,
-      };
-
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(mockEntry);
-      (prismaService.timeEntry.update as any).mockResolvedValue({
-        ...mockEntry,
-        deletedAt: new Date(),
-      });
-
-      await service.deleteTimeEntry(mockUser, "entry-123");
-
-      expect(prismaService.timeEntry.update).toHaveBeenCalledWith({
-        where: { id: "entry-123" },
-        data: { deletedAt: expect.any(Date) },
-      });
-    });
-
-    it("should throw NotFoundException when entry does not exist", async () => {
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(null);
-
-      await expect(
-        service.deleteTimeEntry(mockUser, "non-existent"),
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe("stopTimeEntry", () => {
-    it("should stop an active time entry", async () => {
-      const mockEntry = {
-        id: "entry-123",
-        userId: mockUser.id,
-        companyId: mockUser.companyId,
-        startTime: new Date("2024-01-15T09:00:00Z"),
-        endTime: null,
-        durationMinutes: null,
-        isActive: true,
-      };
-
-      const stoppedEntry = {
-        ...mockEntry,
-        endTime: new Date(),
-        durationMinutes: 60,
-        isActive: false,
-      };
-
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(mockEntry);
-      (prismaService.timeEntry.update as any).mockResolvedValue(stoppedEntry);
-
-      const result = await service.stopTimeEntry(mockUser, "entry-123");
-
-      expect(result.isActive).toBe(false);
-      expect(result.endTime).toBeDefined();
-    });
-
-    it("should throw BadRequestException when entry is not active", async () => {
-      const mockEntry = {
-        id: "entry-123",
-        userId: mockUser.id,
-        companyId: mockUser.companyId,
-        isActive: false,
-      };
-
-      (prismaService.timeEntry.findFirst as any).mockResolvedValue(mockEntry);
-
-      await expect(
-        service.stopTimeEntry(mockUser, "entry-123"),
-      ).rejects.toThrow(BadRequestException);
-    });
-  });
-
-  describe("validateTimeEntry", () => {
-    it("should return valid for non-conflicting entry", async () => {
+  describe("validateWorkSession", () => {
+    it("should return valid for non-conflicting session", async () => {
       const dto = {
-        startTime: "2024-01-15T09:00:00Z",
-        endTime: "2024-01-15T17:00:00Z",
+        clockIn: "2024-01-15T09:00:00Z",
+        clockOut: "2024-01-15T17:00:00Z",
       };
 
-      (prismaService.timeEntry.findMany as any).mockResolvedValue([]);
+      (prismaService.workSession.findMany as any).mockResolvedValue([]);
 
-      const result = await service.validateTimeEntry(mockUser, dto);
+      const result = await service.validateWorkSession(mockUser, dto);
 
       expect(result.isValid).toBe(true);
       expect(result.conflicts).toHaveLength(0);
     });
 
-    it("should return invalid for conflicting entry", async () => {
+    it("should return invalid when clock out is before clock in", async () => {
       const dto = {
-        startTime: "2024-01-15T09:00:00Z",
-        endTime: "2024-01-15T17:00:00Z",
+        clockIn: "2024-01-15T17:00:00Z",
+        clockOut: "2024-01-15T09:00:00Z",
       };
 
-      const conflictingEntry = {
-        id: "existing-entry",
-        startTime: new Date("2024-01-15T10:00:00Z"),
-        endTime: new Date("2024-01-15T12:00:00Z"),
-        description: "Existing entry",
-      };
-
-      (prismaService.timeEntry.findMany as any).mockResolvedValue([
-        conflictingEntry,
-      ]);
-
-      const result = await service.validateTimeEntry(mockUser, dto);
+      const result = await service.validateWorkSession(mockUser, dto);
 
       expect(result.isValid).toBe(false);
-      expect(result.conflicts).toHaveLength(1);
+      expect(result.warnings).toContain(
+        "Clock out time must be after clock in time",
+      );
     });
 
-    it("should return warning for long time entry", async () => {
+    it("should return warning for long work session", async () => {
       const dto = {
-        startTime: "2024-01-15T00:00:00Z",
-        endTime: "2024-01-15T15:00:00Z", // 15 hours
+        clockIn: "2024-01-15T00:00:00Z",
+        clockOut: "2024-01-15T15:00:00Z", // 15 hours
       };
 
-      (prismaService.timeEntry.findMany as any).mockResolvedValue([]);
+      (prismaService.workSession.findMany as any).mockResolvedValue([]);
 
-      const result = await service.validateTimeEntry(mockUser, dto);
+      const result = await service.validateWorkSession(mockUser, dto);
 
-      expect(result.warnings).toContain("Time entry exceeds 12 hours");
+      expect(result.warnings).toContain("Work session exceeds 12 hours");
     });
   });
 
   describe("getDailySummary", () => {
-    it("should return daily summary with time entries", async () => {
+    it("should return daily summary with work sessions", async () => {
       const date = new Date("2024-01-15");
 
-      const mockEntries = [
+      const mockSessions = [
         {
-          id: "entry-1",
+          id: "session-1",
           userId: mockUser.id,
           companyId: mockUser.companyId,
-          startTime: new Date("2024-01-15T09:00:00Z"),
-          endTime: new Date("2024-01-15T12:00:00Z"),
-          durationMinutes: 180,
-        },
-        {
-          id: "entry-2",
-          userId: mockUser.id,
-          companyId: mockUser.companyId,
-          startTime: new Date("2024-01-15T13:00:00Z"),
-          endTime: new Date("2024-01-15T17:00:00Z"),
-          durationMinutes: 240,
+          date: new Date("2024-01-15"),
+          clockIn: new Date("2024-01-15T09:00:00Z"),
+          clockOut: new Date("2024-01-15T17:00:00Z"),
+          totalHours: { toNumber: () => 8 },
         },
       ];
 
-      (prismaService.timeEntry.findMany as any).mockResolvedValue(mockEntries);
+      (prismaService.workSession.findMany as any).mockResolvedValue(
+        mockSessions,
+      );
 
       const result = await service.getDailySummary(mockUser, date);
 
-      expect(result.totalMinutes).toBe(420);
-      expect(result.totalHours).toBe(7);
-      expect(result.entries).toHaveLength(2);
+      expect(result.totalMinutes).toBe(480);
+      expect(result.totalHours).toBe(8);
+      expect(result.sessions).toHaveLength(1);
+    });
+  });
+
+  describe("getActiveSession", () => {
+    it("should return active session if exists", async () => {
+      const activeSession = {
+        id: "session-123",
+        userId: mockUser.id,
+        companyId: mockUser.companyId,
+        status: "WORKING",
+        user: {
+          id: mockUser.id,
+          email: mockUser.email,
+          firstName: mockUser.firstName,
+          lastName: mockUser.lastName,
+        },
+        breaks: [],
+      };
+
+      (prismaService.workSession.findFirst as any).mockResolvedValue(
+        activeSession,
+      );
+
+      const result = await service.getActiveSession(mockUser);
+
+      expect(result).toEqual(activeSession);
+      expect(result?.status).toBe("WORKING");
+    });
+
+    it("should return null if no active session", async () => {
+      (prismaService.workSession.findFirst as any).mockResolvedValue(null);
+
+      const result = await service.getActiveSession(mockUser);
+
+      expect(result).toBeNull();
     });
   });
 });

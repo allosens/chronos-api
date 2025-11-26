@@ -41,28 +41,18 @@ describe("TimeTracking (e2e)", () => {
     passwordHash: "", // Will be set in beforeAll
   };
 
-  const mockProject = {
-    id: "550e8400-e29b-41d4-a716-446655440002",
-    name: "Test Project",
-    companyId: mockCompany.id,
-    isActive: true,
-    deletedAt: null,
-  };
-
-  const mockTimeEntry = {
+  const mockWorkSession = {
     id: "550e8400-e29b-41d4-a716-446655440003",
     userId: mockUser.id,
     companyId: mockCompany.id,
-    projectId: null,
-    taskId: null,
-    description: "Test time entry",
-    startTime: new Date("2024-01-15T09:00:00Z"),
-    endTime: new Date("2024-01-15T17:00:00Z"),
-    durationMinutes: 480,
-    isActive: false,
+    date: new Date("2024-01-15"),
+    clockIn: new Date("2024-01-15T09:00:00Z"),
+    clockOut: new Date("2024-01-15T17:00:00Z"),
+    status: "CLOCKED_OUT",
+    totalHours: { toNumber: () => 8 },
+    notes: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
   };
 
   // Create a mock PrismaService
@@ -75,17 +65,16 @@ describe("TimeTracking (e2e)", () => {
     company: {
       findUnique: vi.fn(),
     },
-    project: {
-      findFirst: vi.fn(),
-    },
-    task: {
-      findFirst: vi.fn(),
-    },
-    timeEntry: {
+    workSession: {
       create: vi.fn(),
       findMany: vi.fn(),
       findFirst: vi.fn(),
       count: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
+    break: {
+      create: vi.fn(),
       update: vi.fn(),
     },
     refreshToken: {
@@ -175,280 +164,303 @@ describe("TimeTracking (e2e)", () => {
     nock.enableNetConnect();
   });
 
-  describe("/api/v1/time-entries (POST)", () => {
-    it("should create a time entry", async () => {
-      const createDto = {
-        startTime: "2024-01-15T09:00:00Z",
-        endTime: "2024-01-15T17:00:00Z",
-        description: "Working on feature",
+  describe("/api/v1/work-sessions/clock-in (POST)", () => {
+    it("should clock in successfully", async () => {
+      const clockInDto = {
+        clockIn: "2024-01-15T09:00:00Z",
+        notes: "Starting work",
       };
 
-      const createdEntry = {
-        ...mockTimeEntry,
-        description: createDto.description,
-        startTime: new Date(createDto.startTime),
-        endTime: new Date(createDto.endTime),
+      const createdSession = {
+        ...mockWorkSession,
+        clockOut: null,
+        totalHours: null,
+        status: "WORKING",
+        notes: clockInDto.notes,
         user: {
           id: mockUser.id,
           email: mockUser.email,
           firstName: mockUser.firstName,
           lastName: mockUser.lastName,
         },
-        project: null,
-        task: null,
+        breaks: [],
       };
 
-      prisma.timeEntry.findMany.mockResolvedValue([]);
-      prisma.timeEntry.create.mockResolvedValue(createdEntry);
+      prisma.workSession.findFirst.mockResolvedValue(null);
+      prisma.workSession.findMany.mockResolvedValue([]);
+      prisma.workSession.create.mockResolvedValue(createdSession);
 
       const response = await request(app.getHttpServer())
-        .post("/api/v1/time-entries")
+        .post("/api/v1/work-sessions/clock-in")
         .set("Authorization", `Bearer ${authToken}`)
-        .send(createDto)
+        .send(clockInDto)
         .expect(201);
 
       expect(response.body).toHaveProperty("id");
-      expect(response.body.description).toBe(createDto.description);
+      expect(response.body.status).toBe("WORKING");
     });
 
     it("should return 401 when not authenticated", async () => {
       await request(app.getHttpServer())
-        .post("/api/v1/time-entries")
+        .post("/api/v1/work-sessions/clock-in")
         .send({
-          startTime: "2024-01-15T09:00:00Z",
-          endTime: "2024-01-15T17:00:00Z",
+          clockIn: "2024-01-15T09:00:00Z",
         })
         .expect(401);
     });
 
-    it("should return 400 for invalid date format", async () => {
-      await request(app.getHttpServer())
-        .post("/api/v1/time-entries")
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({
-          startTime: "invalid-date",
-        })
-        .expect(400);
-    });
-
-    it("should return 400 when end time is before start time", async () => {
-      prisma.timeEntry.findMany.mockResolvedValue([]);
+    it("should return 400 when already clocked in", async () => {
+      prisma.workSession.findFirst.mockResolvedValue({
+        ...mockWorkSession,
+        status: "WORKING",
+      });
 
       await request(app.getHttpServer())
-        .post("/api/v1/time-entries")
+        .post("/api/v1/work-sessions/clock-in")
         .set("Authorization", `Bearer ${authToken}`)
         .send({
-          startTime: "2024-01-15T17:00:00Z",
-          endTime: "2024-01-15T09:00:00Z",
+          clockIn: "2024-01-15T09:00:00Z",
         })
         .expect(400);
     });
   });
 
-  describe("/api/v1/time-entries (GET)", () => {
-    it("should return list of time entries", async () => {
-      const mockEntries = [
+  describe("/api/v1/work-sessions/:id/clock-out (PATCH)", () => {
+    it("should clock out successfully", async () => {
+      const activeSession = {
+        ...mockWorkSession,
+        clockOut: null,
+        status: "WORKING",
+        totalHours: null,
+        breaks: [],
+      };
+
+      const clockedOutSession = {
+        ...activeSession,
+        clockOut: new Date("2024-01-15T17:00:00Z"),
+        status: "CLOCKED_OUT",
+        totalHours: { toNumber: () => 8 },
+        user: {
+          id: mockUser.id,
+          email: mockUser.email,
+          firstName: mockUser.firstName,
+          lastName: mockUser.lastName,
+        },
+      };
+
+      prisma.workSession.findFirst.mockResolvedValue(activeSession);
+      prisma.workSession.update.mockResolvedValue(clockedOutSession);
+
+      const response = await request(app.getHttpServer())
+        .patch(`/api/v1/work-sessions/${mockWorkSession.id}/clock-out`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ clockOut: "2024-01-15T17:00:00Z" })
+        .expect(200);
+
+      expect(response.body.status).toBe("CLOCKED_OUT");
+    });
+
+    it("should return 400 when already clocked out", async () => {
+      prisma.workSession.findFirst.mockResolvedValue({
+        ...mockWorkSession,
+        status: "CLOCKED_OUT",
+        breaks: [],
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/work-sessions/${mockWorkSession.id}/clock-out`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ clockOut: "2024-01-15T17:00:00Z" })
+        .expect(400);
+    });
+  });
+
+  describe("/api/v1/work-sessions (GET)", () => {
+    it("should return list of work sessions", async () => {
+      const mockSessions = [
         {
-          ...mockTimeEntry,
+          ...mockWorkSession,
           user: {
             id: mockUser.id,
             email: mockUser.email,
             firstName: mockUser.firstName,
             lastName: mockUser.lastName,
           },
-          project: null,
-          task: null,
+          breaks: [],
         },
       ];
 
-      prisma.timeEntry.findMany.mockResolvedValue(mockEntries);
-      prisma.timeEntry.count.mockResolvedValue(1);
+      prisma.workSession.findMany.mockResolvedValue(mockSessions);
+      prisma.workSession.count.mockResolvedValue(1);
 
       const response = await request(app.getHttpServer())
-        .get("/api/v1/time-entries")
+        .get("/api/v1/work-sessions")
         .set("Authorization", `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty("entries");
+      expect(response.body).toHaveProperty("sessions");
       expect(response.body).toHaveProperty("total");
-      expect(response.body.entries).toHaveLength(1);
+      expect(response.body.sessions).toHaveLength(1);
     });
 
     it("should filter by date range", async () => {
-      prisma.timeEntry.findMany.mockResolvedValue([]);
-      prisma.timeEntry.count.mockResolvedValue(0);
+      prisma.workSession.findMany.mockResolvedValue([]);
+      prisma.workSession.count.mockResolvedValue(0);
 
       await request(app.getHttpServer())
-        .get("/api/v1/time-entries")
+        .get("/api/v1/work-sessions")
         .set("Authorization", `Bearer ${authToken}`)
         .query({
-          startDate: "2024-01-01T00:00:00Z",
-          endDate: "2024-01-31T23:59:59Z",
+          startDate: "2024-01-01",
+          endDate: "2024-01-31",
         })
         .expect(200);
 
-      expect(prisma.timeEntry.findMany).toHaveBeenCalledWith(
+      expect(prisma.workSession.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            startTime: expect.any(Object),
+            date: expect.any(Object),
           }),
         }),
       );
     });
   });
 
-  describe("/api/v1/time-entries/:id (GET)", () => {
-    it("should return a single time entry", async () => {
-      const entryWithRelations = {
-        ...mockTimeEntry,
+  describe("/api/v1/work-sessions/:id (GET)", () => {
+    it("should return a single work session", async () => {
+      const sessionWithRelations = {
+        ...mockWorkSession,
         user: {
           id: mockUser.id,
           email: mockUser.email,
           firstName: mockUser.firstName,
           lastName: mockUser.lastName,
         },
-        project: null,
-        task: null,
+        breaks: [],
       };
 
-      prisma.timeEntry.findFirst.mockResolvedValue(entryWithRelations);
+      prisma.workSession.findFirst.mockResolvedValue(sessionWithRelations);
 
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/time-entries/${mockTimeEntry.id}`)
+        .get(`/api/v1/work-sessions/${mockWorkSession.id}`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body.id).toBe(mockTimeEntry.id);
+      expect(response.body.id).toBe(mockWorkSession.id);
     });
 
-    it("should return 404 for non-existent entry", async () => {
-      prisma.timeEntry.findFirst.mockResolvedValue(null);
+    it("should return 404 for non-existent session", async () => {
+      prisma.workSession.findFirst.mockResolvedValue(null);
 
       await request(app.getHttpServer())
-        .get("/api/v1/time-entries/550e8400-e29b-41d4-a716-446655440099")
+        .get("/api/v1/work-sessions/550e8400-e29b-41d4-a716-446655440099")
         .set("Authorization", `Bearer ${authToken}`)
         .expect(404);
     });
   });
 
-  describe("/api/v1/time-entries/:id (PUT)", () => {
-    it("should update a time entry", async () => {
-      const existingEntry = {
-        ...mockTimeEntry,
-        userId: mockUser.id,
-        projectId: null,
+  describe("/api/v1/work-sessions/:id/breaks/start (POST)", () => {
+    it("should start a break", async () => {
+      const workingSession = {
+        ...mockWorkSession,
+        clockOut: null,
+        status: "WORKING",
+        breaks: [],
       };
 
-      const updatedEntry = {
-        ...existingEntry,
-        description: "Updated description",
+      const sessionOnBreak = {
+        ...workingSession,
+        status: "ON_BREAK",
         user: {
           id: mockUser.id,
           email: mockUser.email,
           firstName: mockUser.firstName,
           lastName: mockUser.lastName,
         },
-        project: null,
-        task: null,
+        breaks: [
+          {
+            id: "break-123",
+            workSessionId: mockWorkSession.id,
+            startTime: new Date("2024-01-15T12:00:00Z"),
+            endTime: null,
+            durationMinutes: null,
+          },
+        ],
       };
 
-      prisma.timeEntry.findFirst.mockResolvedValue(existingEntry);
-      prisma.timeEntry.findMany.mockResolvedValue([]);
-      prisma.timeEntry.update.mockResolvedValue(updatedEntry);
+      prisma.workSession.findFirst.mockResolvedValue(workingSession);
+      prisma.break.create.mockResolvedValue(sessionOnBreak.breaks[0]);
+      prisma.workSession.update.mockResolvedValue(sessionOnBreak);
 
       const response = await request(app.getHttpServer())
-        .put(`/api/v1/time-entries/${mockTimeEntry.id}`)
+        .post(`/api/v1/work-sessions/${mockWorkSession.id}/breaks/start`)
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ description: "Updated description" })
+        .send({ startTime: "2024-01-15T12:00:00Z" })
         .expect(200);
 
-      expect(response.body.description).toBe("Updated description");
+      expect(response.body.status).toBe("ON_BREAK");
     });
   });
 
-  describe("/api/v1/time-entries/:id (DELETE)", () => {
-    it("should soft delete a time entry", async () => {
-      const existingEntry = {
-        ...mockTimeEntry,
-        userId: mockUser.id,
+  describe("/api/v1/work-sessions/:id/breaks/end (PATCH)", () => {
+    it("should end a break", async () => {
+      const sessionOnBreak = {
+        ...mockWorkSession,
+        clockOut: null,
+        status: "ON_BREAK",
+        breaks: [
+          {
+            id: "break-123",
+            workSessionId: mockWorkSession.id,
+            startTime: new Date("2024-01-15T12:00:00Z"),
+            endTime: null,
+            durationMinutes: null,
+          },
+        ],
       };
 
-      prisma.timeEntry.findFirst.mockResolvedValue(existingEntry);
-      prisma.timeEntry.update.mockResolvedValue({
-        ...existingEntry,
-        deletedAt: new Date(),
-      });
-
-      await request(app.getHttpServer())
-        .delete(`/api/v1/time-entries/${mockTimeEntry.id}`)
-        .set("Authorization", `Bearer ${authToken}`)
-        .expect(204);
-    });
-  });
-
-  describe("/api/v1/time-entries/:id/stop (PATCH)", () => {
-    it("should stop an active time entry", async () => {
-      const activeEntry = {
-        ...mockTimeEntry,
-        userId: mockUser.id,
-        endTime: null,
-        durationMinutes: null,
-        isActive: true,
-      };
-
-      const stoppedEntry = {
-        ...activeEntry,
-        endTime: new Date(),
-        durationMinutes: 120,
-        isActive: false,
+      const workingSession = {
+        ...sessionOnBreak,
+        status: "WORKING",
         user: {
           id: mockUser.id,
           email: mockUser.email,
           firstName: mockUser.firstName,
           lastName: mockUser.lastName,
         },
-        project: null,
-        task: null,
+        breaks: [
+          {
+            ...sessionOnBreak.breaks[0],
+            endTime: new Date("2024-01-15T12:30:00Z"),
+            durationMinutes: 30,
+          },
+        ],
       };
 
-      prisma.timeEntry.findFirst.mockResolvedValue(activeEntry);
-      prisma.timeEntry.update.mockResolvedValue(stoppedEntry);
+      prisma.workSession.findFirst.mockResolvedValue(sessionOnBreak);
+      prisma.break.update.mockResolvedValue(workingSession.breaks[0]);
+      prisma.workSession.update.mockResolvedValue(workingSession);
 
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/time-entries/${mockTimeEntry.id}/stop`)
+        .patch(`/api/v1/work-sessions/${mockWorkSession.id}/breaks/end`)
         .set("Authorization", `Bearer ${authToken}`)
+        .send({ endTime: "2024-01-15T12:30:00Z" })
         .expect(200);
 
-      expect(response.body.isActive).toBe(false);
-      expect(response.body.endTime).toBeDefined();
-    });
-
-    it("should return 400 when entry is not active", async () => {
-      const inactiveEntry = {
-        ...mockTimeEntry,
-        userId: mockUser.id,
-        isActive: false,
-      };
-
-      prisma.timeEntry.findFirst.mockResolvedValue(inactiveEntry);
-
-      await request(app.getHttpServer())
-        .patch(`/api/v1/time-entries/${mockTimeEntry.id}/stop`)
-        .set("Authorization", `Bearer ${authToken}`)
-        .expect(400);
+      expect(response.body.status).toBe("WORKING");
     });
   });
 
-  describe("/api/v1/time-entries/validate (POST)", () => {
-    it("should return valid for non-conflicting entry", async () => {
-      prisma.timeEntry.findMany.mockResolvedValue([]);
+  describe("/api/v1/work-sessions/validate (POST)", () => {
+    it("should return valid for non-conflicting session", async () => {
+      prisma.workSession.findMany.mockResolvedValue([]);
 
       const response = await request(app.getHttpServer())
-        .post("/api/v1/time-entries/validate")
+        .post("/api/v1/work-sessions/validate")
         .set("Authorization", `Bearer ${authToken}`)
         .send({
-          startTime: "2024-01-15T09:00:00Z",
-          endTime: "2024-01-15T17:00:00Z",
+          clockIn: "2024-01-15T09:00:00Z",
+          clockOut: "2024-01-15T17:00:00Z",
         })
         .expect(200);
 
@@ -459,21 +471,20 @@ describe("TimeTracking (e2e)", () => {
 
   describe("/api/v1/time-reports/daily (GET)", () => {
     it("should return daily summary", async () => {
-      const mockEntries = [
+      const mockSessions = [
         {
-          ...mockTimeEntry,
+          ...mockWorkSession,
           user: {
             id: mockUser.id,
             email: mockUser.email,
             firstName: mockUser.firstName,
             lastName: mockUser.lastName,
           },
-          project: null,
-          task: null,
+          breaks: [],
         },
       ];
 
-      prisma.timeEntry.findMany.mockResolvedValue(mockEntries);
+      prisma.workSession.findMany.mockResolvedValue(mockSessions);
 
       const response = await request(app.getHttpServer())
         .get("/api/v1/time-reports/daily")
@@ -484,13 +495,13 @@ describe("TimeTracking (e2e)", () => {
       expect(response.body).toHaveProperty("date");
       expect(response.body).toHaveProperty("totalMinutes");
       expect(response.body).toHaveProperty("totalHours");
-      expect(response.body).toHaveProperty("entries");
+      expect(response.body).toHaveProperty("sessions");
     });
   });
 
   describe("/api/v1/time-reports/weekly (GET)", () => {
     it("should return weekly summary", async () => {
-      prisma.timeEntry.findMany.mockResolvedValue([]);
+      prisma.workSession.findMany.mockResolvedValue([]);
 
       const response = await request(app.getHttpServer())
         .get("/api/v1/time-reports/weekly")
@@ -507,7 +518,7 @@ describe("TimeTracking (e2e)", () => {
 
   describe("/api/v1/time-reports/monthly (GET)", () => {
     it("should return monthly summary", async () => {
-      prisma.timeEntry.findMany.mockResolvedValue([]);
+      prisma.workSession.findMany.mockResolvedValue([]);
 
       const response = await request(app.getHttpServer())
         .get("/api/v1/time-reports/monthly")
