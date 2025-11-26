@@ -29,6 +29,9 @@ import {
   type ValidationResultDto,
 } from "../models";
 
+/** Milliseconds in a day */
+const MS_PER_DAY = 86_400_000;
+
 @Injectable()
 export class TimeTrackingService {
   private readonly logger = new Logger(TimeTrackingService.name);
@@ -809,8 +812,6 @@ export class TimeTrackingService {
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(
-      ((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
-    );
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / MS_PER_DAY + 1) / 7);
   }
 }

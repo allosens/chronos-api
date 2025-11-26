@@ -174,7 +174,7 @@ export class TimeReportsController {
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 1);
     const diff = now.getTime() - start.getTime();
-    const oneWeek = 604_800_000;
-    return Math.ceil(diff / oneWeek);
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+    return Math.ceil(diff / msPerWeek);
   }
 }
