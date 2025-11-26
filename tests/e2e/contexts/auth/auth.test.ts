@@ -21,7 +21,7 @@ import { PrismaService } from "@/shared/database/prisma.service";
 
 describe("Auth (e2e)", () => {
   let app: NestFastifyApplication;
-  let prisma: PrismaService;
+  let prisma: any; // Use any type to allow mock methods
 
   // Create a mock PrismaService
   const mockPrismaService = {
@@ -68,7 +68,7 @@ describe("Auth (e2e)", () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
-    prisma = mockPrismaService as any;
+    prisma = mockPrismaService;
 
     nock.disableNetConnect();
     nock.enableNetConnect("127.0.0.1");
