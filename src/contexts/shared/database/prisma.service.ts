@@ -105,6 +105,15 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get refreshToken() {
     return this.prisma.refreshToken;
   }
+  get project() {
+    return this.prisma.project;
+  }
+  get task() {
+    return this.prisma.task;
+  }
+  get timeEntry() {
+    return this.prisma.timeEntry;
+  }
 
   // Proxy utility methods
   get $connect() {
