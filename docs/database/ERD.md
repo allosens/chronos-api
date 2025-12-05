@@ -242,10 +242,11 @@ CONSTRAINT absence_requests_valid_dates
 
 ### 🚦 **Enums de Estado**
 
-- **user_role**: super_admin, company_admin, employee
-- **work_status**: clocked_out, working, on_break
-- **request_status**: pending, approved, rejected, cancelled
-- **subscription_plan**: free, starter, professional, enterprise
+- **user_role**: SUPER_ADMIN, COMPANY_ADMIN, EMPLOYEE
+- **work_status**: CLOCKED_OUT, WORKING, ON_BREAK
+- **absence_type**: VACATION, SICK_LEAVE, PERSONAL, OTHER
+- **request_status**: PENDING, APPROVED, DENIED, CANCELLED
+- **subscription_plan**: FREE, STARTER, PROFESSIONAL, ENTERPRISE
 
 ## 🎯 **Índices de Performance**
 

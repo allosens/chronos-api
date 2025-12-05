@@ -18,76 +18,75 @@ CREATE EXTENSION IF NOT EXISTS "timescaledb" CASCADE;
 
 -- User roles in the system
 CREATE TYPE user_role AS ENUM (
-  'super_admin',     -- System administrator (no company)
-  'company_admin',   -- Company administrator  
-  'employee'         -- Regular employee
+  'SUPER_ADMIN',     -- System administrator (no company)
+  'COMPANY_ADMIN',   -- Company administrator  
+  'EMPLOYEE'         -- Regular employee
 );
 
 -- Employee status
 CREATE TYPE employee_status AS ENUM (
-  'active',
-  'inactive'
+  'ACTIVE',
+  'INACTIVE'
 );
 
 -- Work session status
 CREATE TYPE work_status AS ENUM (
-  'clocked_out',
-  'working',
-  'on_break'
+  'CLOCKED_OUT',
+  'WORKING',
+  'ON_BREAK'
 );
 
 -- Timesheet entry status
 CREATE TYPE timesheet_status AS ENUM (
-  'complete',
-  'incomplete', 
-  'in_progress',
-  'error'
+  'COMPLETE',
+  'INCOMPLETE', 
+  'IN_PROGRESS',
+  'ERROR'
 );
 
 -- Request status for all types of requests
 CREATE TYPE request_status AS ENUM (
-  'pending',
-  'approved', 
-  'rejected',
-  'cancelled'
+  'PENDING',
+  'APPROVED', 
+  'DENIED',
+  'CANCELLED'
 );
 
 -- Types of absence requests
 CREATE TYPE absence_type AS ENUM (
-  'vacation',
-  'personal_day',
-  'sick_leave',
-  'compensatory_time',
-  'other'
+  'VACATION',
+  'SICK_LEAVE', 
+  'PERSONAL',
+  'OTHER'
 );
 
 -- Subscription plans
 CREATE TYPE subscription_plan AS ENUM (
-  'free',
-  'starter', 
-  'professional',
-  'enterprise'
+  'FREE',
+  'STARTER', 
+  'PROFESSIONAL',
+  'ENTERPRISE'
 );
 
 -- Invoice status
 CREATE TYPE invoice_status AS ENUM (
-  'draft',
-  'pending',
-  'paid',
-  'overdue',
-  'cancelled'
+  'DRAFT',
+  'PENDING',
+  'PAID',
+  'OVERDUE',
+  'CANCELLED'
 );
 
 -- Audit action types
 CREATE TYPE audit_action AS ENUM (
-  'created',
-  'updated', 
-  'deleted',
-  'login',
-  'logout',
-  'role_changed',
-  'permission_granted',
-  'permission_revoked'
+  'CREATED',
+  'UPDATED', 
+  'DELETED',
+  'LOGIN',
+  'LOGOUT',
+  'ROLE_CHANGED',
+  'PERMISSION_GRANTED',
+  'PERMISSION_REVOKED'
 );
 
 -- ===========================================================================
@@ -101,7 +100,7 @@ CREATE TABLE companies (
   email VARCHAR(255) NOT NULL UNIQUE,
   phone VARCHAR(50),
   address TEXT,
-  subscription_plan subscription_plan NOT NULL DEFAULT 'free',
+  subscription_plan subscription_plan NOT NULL DEFAULT 'FREE',
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -116,7 +115,7 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL,
   first_name VARCHAR(100) NOT NULL,
   last_name VARCHAR(100) NOT NULL,
-  role user_role NOT NULL DEFAULT 'employee',
+  role user_role NOT NULL DEFAULT 'EMPLOYEE',
   is_active BOOLEAN NOT NULL DEFAULT true,
   email_verified_at TIMESTAMPTZ NULL,
   last_login_at TIMESTAMPTZ NULL,
@@ -126,8 +125,8 @@ CREATE TABLE users (
   
   -- Constraints
   CONSTRAINT users_super_admin_no_company CHECK (
-    (role = 'super_admin' AND company_id IS NULL) OR 
-    (role != 'super_admin' AND company_id IS NOT NULL)
+    (role = 'SUPER_ADMIN' AND company_id IS NULL) OR 
+    (role != 'SUPER_ADMIN' AND company_id IS NOT NULL)
   )
 );
 
@@ -141,7 +140,7 @@ CREATE TABLE employees (
   department VARCHAR(100),
   phone_number VARCHAR(50),
   hire_date DATE,
-  status employee_status NOT NULL DEFAULT 'active',
+  status employee_status NOT NULL DEFAULT 'ACTIVE',
   vacation_days_per_year INTEGER NOT NULL DEFAULT 22,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -176,7 +175,7 @@ CREATE TABLE work_sessions (
   date DATE NOT NULL,
   clock_in TIMESTAMPTZ NOT NULL,
   clock_out TIMESTAMPTZ NULL,
-  status work_status NOT NULL DEFAULT 'working',
+  status work_status NOT NULL DEFAULT 'WORKING',
   total_hours DECIMAL(5,2) NULL,
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -215,7 +214,7 @@ CREATE TABLE absence_requests (
   total_days INTEGER NOT NULL,
   year INTEGER NOT NULL, -- For vacation year tracking
   comments TEXT,
-  status request_status NOT NULL DEFAULT 'pending',
+  status request_status NOT NULL DEFAULT 'PENDING',
   requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   reviewed_at TIMESTAMPTZ NULL,
   reviewed_by UUID NULL REFERENCES users(id),
@@ -242,7 +241,7 @@ CREATE TABLE time_correction_requests (
   requested_clock_out TIMESTAMPTZ,
   
   reason TEXT NOT NULL,
-  status request_status NOT NULL DEFAULT 'pending',
+  status request_status NOT NULL DEFAULT 'PENDING',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   reviewed_at TIMESTAMPTZ NULL,
   reviewed_by UUID NULL REFERENCES users(id),
@@ -265,7 +264,7 @@ CREATE TABLE invoices (
   due_date DATE NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   currency VARCHAR(3) NOT NULL DEFAULT 'EUR',
-  status invoice_status NOT NULL DEFAULT 'draft',
+  status invoice_status NOT NULL DEFAULT 'DRAFT',
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   paid_at TIMESTAMPTZ NULL
@@ -443,9 +442,9 @@ BEGIN
     SELECT COALESCE(SUM(total_days), 0) INTO days_used
     FROM absence_requests
     WHERE user_id = employee_user_id 
-      AND type = 'vacation'
+      AND type = 'VACATION'
       AND year = vacation_year
-      AND status = 'approved';
+      AND status = 'APPROVED';
       
     RETURN days_used;
 END;

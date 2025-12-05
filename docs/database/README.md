@@ -147,7 +147,7 @@ SELECT
     e.department
 FROM employee_details e
 JOIN companies c ON e.company_id = c.id
-WHERE e.status = 'active';
+WHERE e.status = 'ACTIVE';
 ```
 
 ### Estado actual de trabajo
@@ -176,7 +176,7 @@ SELECT
     ar.requested_at
 FROM absence_requests ar
 JOIN users u ON ar.user_id = u.id
-WHERE ar.status = 'pending'
+WHERE ar.status = 'PENDING'
 ORDER BY ar.requested_at DESC;
 ```
 
