@@ -2,10 +2,8 @@ import { Logger, Module } from "@nestjs/common";
 
 import { DatabaseModule } from "@/shared/database/database.module";
 
-import {
-  TimeReportsController,
-  TimeTrackingController,
-} from "./controllers/time-tracking.controller";
+import { TimeReportsController } from "./controllers/time-reports.controller";
+import { TimeTrackingController } from "./controllers/time-tracking.controller";
 import { TimeTrackingService } from "./services/time-tracking.service";
 
 @Module({
