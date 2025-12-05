@@ -147,7 +147,7 @@ SELECT
     e.department
 FROM employee_details e
 JOIN companies c ON e.company_id = c.id
-WHERE e.status = 'active';
+WHERE e.status = 'ACTIVE';
 ```
 
 ### Estado actual de trabajo
