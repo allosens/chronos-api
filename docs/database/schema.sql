@@ -46,19 +46,18 @@ CREATE TYPE timesheet_status AS ENUM (
 
 -- Request status for all types of requests
 CREATE TYPE request_status AS ENUM (
-  'pending',
-  'approved', 
-  'rejected',
-  'cancelled'
+  'PENDING',
+  'APPROVED', 
+  'DENIED',
+  'CANCELLED'
 );
 
 -- Types of absence requests
 CREATE TYPE absence_type AS ENUM (
-  'vacation',
-  'personal_day',
-  'sick_leave',
-  'compensatory_time',
-  'other'
+  'VACATION',
+  'SICK_LEAVE', 
+  'PERSONAL',
+  'OTHER'
 );
 
 -- Subscription plans
@@ -215,7 +214,7 @@ CREATE TABLE absence_requests (
   total_days INTEGER NOT NULL,
   year INTEGER NOT NULL, -- For vacation year tracking
   comments TEXT,
-  status request_status NOT NULL DEFAULT 'pending',
+  status request_status NOT NULL DEFAULT 'PENDING',
   requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   reviewed_at TIMESTAMPTZ NULL,
   reviewed_by UUID NULL REFERENCES users(id),
@@ -242,7 +241,7 @@ CREATE TABLE time_correction_requests (
   requested_clock_out TIMESTAMPTZ,
   
   reason TEXT NOT NULL,
-  status request_status NOT NULL DEFAULT 'pending',
+  status request_status NOT NULL DEFAULT 'PENDING',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   reviewed_at TIMESTAMPTZ NULL,
   reviewed_by UUID NULL REFERENCES users(id),
@@ -443,9 +442,9 @@ BEGIN
     SELECT COALESCE(SUM(total_days), 0) INTO days_used
     FROM absence_requests
     WHERE user_id = employee_user_id 
-      AND type = 'vacation'
+      AND type = 'VACATION'
       AND year = vacation_year
-      AND status = 'approved';
+      AND status = 'APPROVED';
       
     RETURN days_used;
 END;

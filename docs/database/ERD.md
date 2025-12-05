@@ -244,7 +244,8 @@ CONSTRAINT absence_requests_valid_dates
 
 - **user_role**: super_admin, company_admin, employee
 - **work_status**: clocked_out, working, on_break
-- **request_status**: pending, approved, rejected, cancelled
+- **absence_type**: VACATION, SICK_LEAVE, PERSONAL, OTHER
+- **request_status**: PENDING, APPROVED, DENIED, CANCELLED
 - **subscription_plan**: free, starter, professional, enterprise
 
 ## 🎯 **Índices de Performance**
