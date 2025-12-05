@@ -48,8 +48,15 @@ export class TimeTrackingService {
     this.logger.log(`Clocking in user ${user.id}`);
 
     const clockIn = new Date(dto.clockIn);
-    const date = new Date(clockIn);
-    date.setHours(0, 0, 0, 0);
+    // Extract the date in UTC to avoid timezone issues
+    // The date field should represent the calendar date when the user clocked in
+    const date = new Date(
+      Date.UTC(
+        clockIn.getUTCFullYear(),
+        clockIn.getUTCMonth(),
+        clockIn.getUTCDate(),
+      ),
+    );
 
     // Check if user already has an active session
     const activeSession = await this.prisma.workSession.findFirst({
@@ -585,11 +592,22 @@ export class TimeTrackingService {
   async getDailySummary(user: IAuthUser, date: Date): Promise<IDailySummary> {
     this.logger.log(`Getting daily summary for ${date.toISOString()}`);
 
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    // Use UTC-based date boundaries to avoid timezone issues
+    const startOfDay = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
 
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    const endOfDay = new Date(
+      Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
 
     const where: Prisma.WorkSessionWhereInput = {
       companyId: user.companyId,
@@ -734,9 +752,14 @@ export class TimeTrackingService {
     clockIn: Date,
     excludeId?: string,
   ): Promise<ITimeConflict[]> {
-    // Find sessions on the same date
-    const date = new Date(clockIn);
-    date.setHours(0, 0, 0, 0);
+    // Find sessions on the same date using UTC to avoid timezone issues
+    const date = new Date(
+      Date.UTC(
+        clockIn.getUTCFullYear(),
+        clockIn.getUTCMonth(),
+        clockIn.getUTCDate(),
+      ),
+    );
 
     const where: Prisma.WorkSessionWhereInput = {
       userId,
@@ -770,17 +793,17 @@ export class TimeTrackingService {
     year: number,
     week: number,
   ): { startOfWeek: Date; endOfWeek: Date } {
-    const jan1 = new Date(year, 0, 1);
+    // Use UTC to avoid timezone issues
+    const jan1 = new Date(Date.UTC(year, 0, 1));
     const days = (week - 1) * 7;
-    const dayOfWeek = jan1.getDay();
+    const dayOfWeek = jan1.getUTCDay();
     const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
 
-    const startOfWeek = new Date(year, 0, 1 + diff + days);
-    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfWeek = new Date(Date.UTC(year, 0, 1 + diff + days));
 
     const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(endOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
+    endOfWeek.setUTCDate(endOfWeek.getUTCDate() + 6);
+    endOfWeek.setUTCHours(23, 59, 59, 999);
 
     return { startOfWeek, endOfWeek };
   }
