@@ -8,6 +8,7 @@ import request from "supertest";
 import { vi } from "vitest";
 
 import { AppModule } from "@/app/app.module";
+
 import { PrismaService } from "@/shared/database/prisma.service";
 
 describe("Health", () => {
