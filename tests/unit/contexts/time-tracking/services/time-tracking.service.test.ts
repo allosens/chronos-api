@@ -376,7 +376,7 @@ describe("TimeTrackingService", () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it("should throw ForbiddenException when employee tries to access another users session", async () => {
+    it("should throw ForbiddenException when employee tries to access another user's session", async () => {
       const mockSession = {
         id: "session-123",
         userId: "other-user",

@@ -60,10 +60,7 @@ export class TimeReportsController {
   }
 
   private getCurrentWeek(): number {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 1);
-    const diff = now.getTime() - start.getTime();
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-    return Math.ceil(diff / msPerWeek);
+    // Delegate to the service to ensure ISO 8601 and UTC consistency
+    return this.timeTrackingService.getWeekNumber(new Date());
   }
 }

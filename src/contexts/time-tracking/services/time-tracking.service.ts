@@ -808,7 +808,7 @@ export class TimeTrackingService {
     return { startOfWeek, endOfWeek };
   }
 
-  private getWeekNumber(date: Date): number {
+  getWeekNumber(date: Date): number {
     const d = new Date(
       Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
     );
