@@ -77,7 +77,7 @@ describe("Auth (e2e)", () => {
   beforeEach(() => {
     // Clear all mocks before each test
     vi.clearAllMocks();
-    
+
     // Reset all mock functions
     mockPrismaService.user.findUnique.mockReset();
     mockPrismaService.user.create.mockReset();
@@ -86,7 +86,7 @@ describe("Auth (e2e)", () => {
     mockPrismaService.refreshToken.create.mockReset();
     mockPrismaService.refreshToken.findFirst.mockReset();
     mockPrismaService.refreshToken.update.mockReset();
-    
+
     // Reset all mock functions
     mockPrismaService.user.findUnique.mockReset();
     mockPrismaService.user.create.mockReset();
