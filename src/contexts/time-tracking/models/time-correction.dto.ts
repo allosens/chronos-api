@@ -1,13 +1,17 @@
 import {
   IsDateString,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
 } from "class-validator";
 import { RequestStatus } from "@prisma/client";
+import { Type } from "class-transformer";
 
 export class CreateTimeCorrectionRequestDto {
   @IsUUID()
@@ -79,9 +83,16 @@ export class FilterTimeCorrectionRequestsDto {
   endDate?: string;
 
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
   limit?: number = 20;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
   offset?: number = 0;
 }
 

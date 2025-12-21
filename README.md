@@ -11,6 +11,7 @@ Chronos API is a robust NestJS-based backend service that powers the Chronos tim
 - 🔐 **Authentication & Authorization** - JWT-based auth with role-based access control
 - 👥 **Multi-tenant Architecture** - Support for multiple companies with data isolation
 - ⏰ **Time Tracking** - Clock in/out, breaks, work sessions, and timesheet management
+- ✏️ **Time Corrections** - Employee-initiated time correction requests with manager approval workflow
 - 🏢 **Employee Management** - Employee profiles, roles, and company hierarchy
 - 📊 **Reporting** - Generate detailed time and attendance reports
 - 📅 **Leave Management** - Vacation requests, sick leave, and absence tracking
