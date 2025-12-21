@@ -22,6 +22,9 @@ import {
   type UpdateTimeCorrectionRequestDto,
 } from "../models";
 
+/** Milliseconds in a minute */
+const MS_PER_MINUTE = 60_000;
+
 @Injectable()
 export class TimeCorrectionService {
   private readonly logger = new Logger(TimeCorrectionService.name);
@@ -541,7 +544,7 @@ export class TimeCorrectionService {
         0,
       );
       const totalMinutes =
-        Math.round((newClockOut.getTime() - newClockIn.getTime()) / 60_000) -
+        Math.round((newClockOut.getTime() - newClockIn.getTime()) / MS_PER_MINUTE) -
         totalBreakMinutes;
       totalHours = Math.round((totalMinutes / 60) * 100) / 100;
     }
