@@ -29,11 +29,13 @@ import {
   EndBreakDto,
   FilterWorkSessionsDto,
   StartBreakDto,
+  type TimeCorrectionRequestsListResponseDto,
   UpdateWorkSessionDto,
   ValidateWorkSessionDto,
   type ValidationResultDto,
   type WorkSessionsListResponseDto,
 } from "../models";
+import { TimeCorrectionService } from "../services/time-correction.service";
 import { TimeTrackingService } from "../services/time-tracking.service";
 
 @Controller("v1/work-sessions")
@@ -41,7 +43,10 @@ import { TimeTrackingService } from "../services/time-tracking.service";
 export class TimeTrackingController {
   private readonly logger = new Logger(TimeTrackingController.name);
 
-  constructor(private readonly timeTrackingService: TimeTrackingService) {}
+  constructor(
+    private readonly timeTrackingService: TimeTrackingService,
+    private readonly timeCorrectionService: TimeCorrectionService,
+  ) {}
 
   @Post("clock-in")
   @HttpCode(HttpStatus.CREATED)
@@ -152,5 +157,14 @@ export class TimeTrackingController {
       new Date(clockIn),
       excludeId,
     );
+  }
+
+  @Get(":id/corrections")
+  async getCorrectionHistory(
+    @CurrentUser() user: IAuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<TimeCorrectionRequestsListResponseDto> {
+    this.logger.log(`Get correction history for work session ${id}`);
+    return this.timeCorrectionService.getCorrectionHistory(user, id);
   }
 }
